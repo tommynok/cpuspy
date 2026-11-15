@@ -1,0 +1,1 @@
+Simple Android app for viewing the time the CPU spends in each frequency state.
