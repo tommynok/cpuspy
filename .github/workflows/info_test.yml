@@ -77,7 +77,7 @@ jobs:
           disable-spellchecker: true
           script: |
             ./gradlew build ; ./gradlew installDebug
-            adb shell am start -n com.zoffcc.applications.cpuspy/com.bvalosek.cpuspy.ui.HomeActivity  &
+            adb shell am start -n com.zoffcc.applications.cpuspy/com.bvalosek.cpuspy.ui.HomeActivity --ez demo_mode true &
             sleep 60
             adb exec-out screencap -p > ~/info_screen01_${{ matrix.api-level }}.png
             ls -al ~/info_screen01_${{ matrix.api-level }}.png
