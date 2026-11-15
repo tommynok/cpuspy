@@ -26,7 +26,7 @@ import android.widget.TextView;
 
 import com.bvalosek.cpuspy.*;
 import com.bvalosek.cpuspy.CpuStateMonitor.CpuState;
-import com.bvalosek.cpuspy.CpuStateMonitor.CpuStateMonitorException;
+
 import android.util.Log;
 
 /** main activity class */
@@ -48,10 +48,13 @@ public class HomeActivity extends Activity
     /** whether or not we're updating the data in the background */
     private boolean     _updatingData = false;
 
+    public static boolean DEMO_MODE = false;
+
     /** Initialize the Activity */
     @Override public void onCreate(Bundle savedInstanceState)
     {
         super.onCreate(savedInstanceState);
+
         try {
             setContentView(R.layout.home_layout);
             _app = (CpuSpyApp)getApplicationContext();
@@ -66,6 +69,17 @@ public class HomeActivity extends Activity
         } catch (Exception e) {
             Log.e(TAG, "Error in onCreate", e);
             finish(); // Close activity if we can't even initialize
+        }
+
+        try {
+            DEMO_MODE = getIntent().getBooleanExtra("demo_mode", false);
+        } catch (Exception e) {
+            Log.e(TAG, "Error reading demo extra", e);
+        }
+
+        if (BuildConfig.DEBUG && DEMO_MODE)
+        {
+            _app.getCpuStateMonitor().setDemoMode();
         }
     }
 
@@ -87,6 +101,10 @@ public class HomeActivity extends Activity
             refreshData();
         } catch (Exception e) {
             Log.e(TAG, "Error in onResume", e);
+        }
+        if (BuildConfig.DEBUG && DEMO_MODE)
+        {
+            _app.getCpuStateMonitor().setDemoMode();
         }
     }
 

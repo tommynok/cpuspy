@@ -21,6 +21,8 @@ import java.util.Map;
 import android.os.SystemClock;
 import android.util.Log;
 
+import static com.bvalosek.cpuspy.ui.HomeActivity.DEMO_MODE;
+
 /**
  * CpuStateMonitor is a class responsible for querying the system and getting
  * the time-in-state information, as well as allowing the user to set/reset
@@ -176,6 +178,11 @@ public class CpuStateMonitor {
             throw new CpuStateMonitorException("Problem opening time-in-states file");
         }
 
+        if (BuildConfig.DEBUG && DEMO_MODE)
+        {
+            setDemoMode();
+        }
+
         try {
             long sleepTime = (SystemClock.elapsedRealtime()
                               - SystemClock.uptimeMillis()) / 10;
@@ -230,5 +237,29 @@ public class CpuStateMonitor {
             Log.e(TAG, "Problem processing time-in-states file", e);
             throw new CpuStateMonitorException("Problem processing time-in-states file");
         }
+    }
+
+    /**
+     * Debug-only: inject realistic demo states when the sysfs file is useless (emulator).
+     */
+    public void setDemoMode() {
+        if (!BuildConfig.DEBUG) return;
+
+        long[][] demo = {      // kHz, centiseconds
+                { 300000,  45230 },
+                { 576000,  31870 },
+                { 768000,  22410 },
+                {1017600,  18760 },
+                {1209600,  12930 },
+                {1401600,   8450 },
+                {1612800,   5210 },
+                {1804800,   3120 },
+                {2208000,   1540 },
+                {2400000,      0 },
+                {2611200,      0 },
+        };
+        _states.clear();
+        for (long[] d : demo) _states.add(new CpuState(d[0], d[1]));
+        Log.d(TAG, "DEMO: injected " + demo.length + " states");
     }
 }
