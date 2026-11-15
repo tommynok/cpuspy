@@ -2,10 +2,30 @@ plugins {
     id 'com.android.application'
 }
 
+def getGitHash = { ->
+    try {
+        def stdout = new ByteArrayOutputStream()
+        exec {
+            commandLine 'git', 'rev-parse', '--verify', '--short=8', 'HEAD'
+            standardOutput = stdout
+        }
+        return stdout.toString().trim()
+    }
+    catch (Exception ignored)
+    {
+        return "????????"
+    }
+}
+
 android {
     namespace 'com.bvalosek.cpuspy'
     compileSdk 34
     compileOptions.encoding = 'UTF-8'
+
+    aaptOptions {
+        additionalParameters "--no-version-vectors"
+        cruncherEnabled = false
+    }
 
     defaultConfig {
         applicationId "com.zoffcc.applications.cpuspy"
@@ -13,13 +33,15 @@ android {
         targetSdk 34
         versionCode 20002
         versionName "2.0.2"
-    }
 
-    buildTypes {
-        release {
-            minifyEnabled false
-            // proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
+        // Enabling multidex support
+        multiDexEnabled true
+
+        vectorDrawables.useSupportLibrary = true
+
+        buildConfigField "String", "GitHash", "\"${getGitHash()}\""
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunnerArguments useTestStorageService: 'true'
     }
 
     buildFeatures {
@@ -31,6 +53,10 @@ android {
         includeInApk = false
         // Disables dependency metadata when building Android App Bundles.
         includeInBundle = false
+    }
+
+    lint {
+        abortOnError false
     }
 
     lintOptions {
@@ -47,18 +73,32 @@ android {
         xmlOutput file("lint-report.xml")
     }
 
+    buildTypes {
+        debug {
+            crunchPngs false
+            ext.enableCrashlytics = false
+            minifyEnabled false
+            shrinkResources false
+            // proguardFile ('proguard-disable.pro')
+        }
+        release {
+            crunchPngs false
+            ext.enableCrashlytics = false
+            minifyEnabled false
+            shrinkResources false
+            // proguardFile ('proguard-disable.pro')
+        }
+    }
+
     compileOptions {
         encoding "UTF-8"
+        coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
 }
 
 dependencies {
-    // The app uses only standard Android SDK views and APIs; no external dependencies are required.
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
 }
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
-    }
-}
+
