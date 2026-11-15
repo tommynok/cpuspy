@@ -46,5 +46,5 @@ commit_message="new version ""$next_m_version"
 tag_name="$next_m_version"
 
 git commit -m "$commit_message" "$f1"
-git tag -a 'satstat-'"$next_m_version" -m 'satstat-'"$next_m_version"
+git tag -a "$next_m_version" -m "$next_m_version"
 
