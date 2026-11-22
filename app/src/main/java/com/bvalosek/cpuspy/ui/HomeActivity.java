@@ -11,9 +11,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.SharedPreferences;
+import android.content.res.Configuration;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -50,9 +55,36 @@ public class HomeActivity extends Activity
 
     public static boolean DEMO_MODE = false;
 
+    /** Apply chosen theme before views are created */
+    private void applyTheme() {
+        try {
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+            String themeMode = prefs.getString("theme_mode", "system");
+
+            boolean isDark;
+            if ("dark".equals(themeMode)) {
+                isDark = true;
+            } else if ("light".equals(themeMode)) {
+                isDark = false;
+            } else {
+                int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+                isDark = (nightModeFlags == Configuration.UI_MODE_NIGHT_YES);
+            }
+
+            if (isDark) {
+                setTheme(R.style.Theme_CpuSpy_Dark);
+            } else {
+                setTheme(R.style.Theme_CpuSpy_Light);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error applying theme", e);
+        }
+    }
+
     /** Initialize the Activity */
     @Override public void onCreate(Bundle savedInstanceState)
     {
+        applyTheme();
         super.onCreate(savedInstanceState);
 
         try {
@@ -93,7 +125,6 @@ public class HomeActivity extends Activity
         }
     }
 
-
     /** Update the view when the application regains focus */
     @Override public void onResume () {
         super.onResume();
@@ -126,7 +157,7 @@ public class HomeActivity extends Activity
         }
     }
 
-    /** called when we want to infalte the menu */
+    /** called when we want to inflate the menu */
     @Override public boolean onCreateOptionsMenu(Menu menu) {
         try {
             MenuInflater inflater = getMenuInflater();
@@ -135,6 +166,53 @@ public class HomeActivity extends Activity
             Log.e(TAG, "Error creating menu", e);
         }
         return true;
+    }
+
+    /** Show theme selector dialog */
+    private void showThemeDialog() {
+        try {
+            final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+            final String currentTheme = prefs.getString("theme_mode", "system");
+
+            int checkedItem = 0;
+            if ("light".equals(currentTheme)) {
+                checkedItem = 1;
+            } else if ("dark".equals(currentTheme)) {
+                checkedItem = 2;
+            }
+
+            final String[] themeValues = new String[] { "system", "light", "dark" };
+            final String[] themeTitles = new String[] {
+                getString(R.string.theme_system),
+                getString(R.string.theme_light),
+                getString(R.string.theme_dark)
+            };
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle(R.string.dialog_theme_title);
+            builder.setSingleChoiceItems(themeTitles, checkedItem, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    try {
+                        String selected = themeValues[which];
+                        if (!selected.equals(currentTheme)) {
+                            prefs.edit().putString("theme_mode", selected).apply();
+                            dialog.dismiss();
+                            recreate();
+                        } else {
+                            dialog.dismiss();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error saving theme preference", e);
+                        dialog.dismiss();
+                    }
+                }
+            });
+            builder.setNegativeButton(android.R.string.cancel, null);
+            builder.show();
+        } catch (Exception e) {
+            Log.e(TAG, "Error showing theme dialog", e);
+        }
     }
 
     /** called to handle a menu event */
@@ -162,6 +240,10 @@ public class HomeActivity extends Activity
                 updateView();
                 return true;
             }
+            else if (itemId == R.id.menu_theme) {
+                showThemeDialog();
+                return true;
+            }
         } catch (Exception e) {
             Log.e(TAG, "Error handling menu item", e);
         }
@@ -184,9 +266,9 @@ public class HomeActivity extends Activity
                         generateStateRow(state, _uiStatesView);
                     } else {
                         if (state.freq == 0) {
-                            extraStates.add("Deep Sleep");
+                            extraStates.add(getString(R.string.state_deep_sleep));
                         } else {
-                            extraStates.add(state.freq/1000 + " MHz");
+                            extraStates.add(state.freq/1000 + " " + getString(R.string.unit_mhz));
                         }
                     }
                 } catch (Exception e) {
@@ -271,7 +353,7 @@ public class HomeActivity extends Activity
      */
     private View generateStateRow(CpuState state, ViewGroup parent) {
         try {
-            LayoutInflater inf = LayoutInflater.from((Context)_app);
+            LayoutInflater inf = LayoutInflater.from(this);
             LinearLayout theRow = (LinearLayout)inf.inflate(
                     R.layout.state_row, parent, false);
 
@@ -282,9 +364,9 @@ public class HomeActivity extends Activity
 
             String sFreq;
             if (state.freq == 0) {
-                sFreq = "Deep Sleep";
+                sFreq = getString(R.string.state_deep_sleep);
             } else {
-                sFreq = state.freq / 1000 + " MHz";
+                sFreq = state.freq / 1000 + " " + getString(R.string.unit_mhz);
             }
 
             long tSec = state.duration / 100;
@@ -317,6 +399,7 @@ public class HomeActivity extends Activity
             try {
                 CpuStateMonitor monitor = _app.getCpuStateMonitor();
                 monitor.updateStates();
+                _app.updateKernelVersion();
             } catch (Exception e) {
                 Log.e(TAG, "Problem getting CPU states", e);
             }

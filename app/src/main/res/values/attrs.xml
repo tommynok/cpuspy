@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="appBackgroundColor" format="color" />
+    <attr name="headerBackgroundColor" format="color" />
+    <attr name="headerTextColor" format="color" />
+    <attr name="primaryTextColor" format="color" />
+    <attr name="secondaryTextColor" format="color" />
+    <attr name="percentageTextColor" format="color" />
+    <attr name="dividerColor" format="color" />
+    <attr name="progressTint" format="color" />
+    <attr name="progressBackgroundTint" format="color" />
+    <attr name="warningBackgroundColor" format="color" />
+    <attr name="warningTextColor" format="color" />
+</resources>

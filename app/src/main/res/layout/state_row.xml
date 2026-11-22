@@ -19,7 +19,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:textColor="#FFFFFF"
+            android:textColor="?attr/primaryTextColor"
             android:textSize="15sp"
             android:textStyle="bold" />
 
@@ -28,7 +28,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:gravity="end"
-            android:textColor="#E0E0E0"
+            android:textColor="?attr/secondaryTextColor"
             android:textSize="15sp"
             android:layout_marginEnd="8dp" />
 
@@ -37,7 +37,7 @@
             android:layout_width="55dp"
             android:layout_height="wrap_content"
             android:gravity="end"
-            android:textColor="#90CAF9"
+            android:textColor="?attr/percentageTextColor"
             android:textSize="13sp"
             android:textStyle="bold" />
 
@@ -53,13 +53,13 @@
         android:layout_marginStart="4dp"
         android:layout_marginEnd="4dp"
         android:max="100"
-        android:progressTint="#42A5F5"
-        android:progressBackgroundTint="#333333" />
+        android:progressTint="?attr/progressTint"
+        android:progressBackgroundTint="?attr/progressBackgroundTint" />
 
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginTop="2dp"
-        android:background="#333333" />
+        android:background="?attr/dividerColor" />
 
 </LinearLayout>

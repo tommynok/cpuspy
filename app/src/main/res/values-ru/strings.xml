@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CPU Spy</string>
+    <string name="header_time_in_state">Время в состояниях</string>
+    <string name="header_unused_states">Неиспользуемые частоты ЦП</string>
+    <string name="header_total_state_time">Общее время работы</string>
+    <string name="header_kernel_info">Информация о ядре</string>
+    <string name="warning_no_states">Файл состояний не найден. Вы уверены, что ваше устройство совместимо?\n\nЕсли вы используете кастомную прошивку или ядро, сообщите разработчику, что файл состояний недоступен для чтения.</string>
+    <string name="state_deep_sleep">Глубокий сон</string>
+    <string name="unit_mhz">МГц</string>
+    <string name="menu_refresh">Обновить</string>
+    <string name="menu_reset">Сбросить таймеры</string>
+    <string name="menu_restore">Восстановить таймеры</string>
+    <string name="menu_theme">Тема</string>
+    <string name="dialog_theme_title">Выберите тему</string>
+    <string name="theme_system">Системная</string>
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Тёмная</string>
+    <string name="kernel_info_unavailable">Информация о ядре недоступна</string>
+</resources>

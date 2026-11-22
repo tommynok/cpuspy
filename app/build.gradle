@@ -73,8 +73,18 @@ android {
         xmlOutput file("lint-report.xml")
     }
 
+    signingConfigs {
+        testSigning {
+            storeFile file('test-key.jks')
+            storePassword 'cpuspy'
+            keyAlias 'cpuspy'
+            keyPassword 'cpuspy'
+        }
+    }
+
     buildTypes {
         debug {
+            signingConfig signingConfigs.testSigning
             crunchPngs false
             ext.enableCrashlytics = false
             minifyEnabled false
@@ -82,6 +92,7 @@ android {
             // proguardFile ('proguard-disable.pro')
         }
         release {
+            signingConfig signingConfigs.testSigning
             crunchPngs false
             ext.enableCrashlytics = false
             minifyEnabled false
@@ -101,4 +112,3 @@ android {
 dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
 }
-

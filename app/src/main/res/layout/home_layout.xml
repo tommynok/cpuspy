@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#121212">
+    android:background="?attr/appBackgroundColor">
 
     <ScrollView
         android:layout_width="match_parent"
@@ -17,7 +17,7 @@
 
             <TextView
                 style="@style/infoHeader"
-                android:text="Time In State" />
+                android:text="@string/header_time_in_state" />
 
             <LinearLayout
                 android:id="@+id/ui_states_view"
@@ -30,10 +30,10 @@
                 android:id="@+id/ui_states_warning"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="#4A1515"
+                android:background="?attr/warningBackgroundColor"
                 android:padding="6dp"
-                android:text="No states file found. Are you sure your phone is compatible?\n\nIf you are running a custom ROM or kernel, try contacting its developer to inform him that the states file is not readable."
-                android:textColor="#FFCDD2"
+                android:text="@string/warning_no_states"
+                android:textColor="?attr/warningTextColor"
                 android:textSize="14sp"
                 android:textStyle="bold"
                 android:visibility="gone" />
@@ -41,7 +41,7 @@
             <TextView
                 android:id="@+id/ui_header_additional_states"
                 style="@style/infoHeader"
-                android:text="Unused CPU states"
+                android:text="@string/header_unused_states"
                 android:visibility="gone" />
 
             <TextView
@@ -49,14 +49,14 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:padding="4dp"
-                android:textColor="#E0E0E0"
+                android:textColor="?attr/secondaryTextColor"
                 android:textSize="14sp"
                 android:visibility="gone" />
 
             <TextView
                 android:id="@+id/ui_header_total_state_time"
                 style="@style/infoHeader"
-                android:text="Total State Time" />
+                android:text="@string/header_total_state_time" />
 
             <TextView
                 android:id="@+id/ui_total_state_time"
@@ -64,20 +64,20 @@
                 android:layout_height="wrap_content"
                 android:gravity="center_horizontal"
                 android:padding="6dp"
-                android:textColor="#FFFFFF"
+                android:textColor="?attr/primaryTextColor"
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
             <TextView
                 style="@style/infoHeader"
-                android:text="Kernel Info" />
+                android:text="@string/header_kernel_info" />
 
             <TextView
                 android:id="@+id/ui_kernel_string"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:padding="4dp"
-                android:textColor="#E0E0E0"
+                android:textColor="?attr/secondaryTextColor"
                 android:textSize="14sp" />
 
         </LinearLayout>

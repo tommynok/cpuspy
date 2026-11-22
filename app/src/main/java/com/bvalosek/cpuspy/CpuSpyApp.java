@@ -56,6 +56,9 @@ public class CpuSpyApp extends Application {
 
     /** @return the kernel version string */
     public String getKernelVersion() {
+        if (_kernelVersion == null || _kernelVersion.trim().isEmpty()) {
+            updateKernelVersion();
+        }
         return _kernelVersion;
     }
 
@@ -126,25 +129,63 @@ public class CpuSpyApp extends Application {
         }
     }
 
-    /** Try to read the kernel version string from the proc fileystem */
+    /** Try to read the kernel version string from the proc filesystem or system APIs */
     public String updateKernelVersion() {
+        _kernelVersion = "";
         try {
             InputStream is = new FileInputStream(KERNEL_VERSION_PATH);
             InputStreamReader ir = new InputStreamReader(is);
             BufferedReader br = new BufferedReader(ir);
 
             String line;
-            while ((line = br.readLine())!= null ) {
+            while ((line = br.readLine()) != null) {
                 _kernelVersion = line;
             }
 
             is.close();
         } catch (Exception e) {
             Log.e(TAG, "Problem reading kernel version file", e);
-            return "";
         }
 
-        // made it
+        // On Android 8+ (API 26+), SELinux restricts access to /proc/version for untrusted apps.
+        // Fallback to Os.uname() and system properties which work reliably across all Android versions.
+        if (_kernelVersion == null || _kernelVersion.trim().isEmpty()) {
+            try {
+                android.system.StructUtsname uname = android.system.Os.uname();
+                if (uname != null) {
+                    StringBuilder sb = new StringBuilder();
+                    if (uname.sysname != null) sb.append(uname.sysname).append(" ");
+                    if (uname.release != null) sb.append(uname.release);
+                    if (uname.machine != null) sb.append(" (").append(uname.machine).append(")");
+                    if (uname.version != null && !uname.version.isEmpty()) {
+                        sb.append("\n").append(uname.version);
+                    }
+                    _kernelVersion = sb.toString().trim();
+                }
+            } catch (Throwable t) {
+                Log.e(TAG, "Problem getting uname", t);
+            }
+        }
+
+        if (_kernelVersion == null || _kernelVersion.trim().isEmpty()) {
+            try {
+                String osVer = System.getProperty("os.version");
+                if (osVer != null && !osVer.isEmpty()) {
+                    _kernelVersion = "Linux " + osVer;
+                }
+            } catch (Throwable t) {
+                Log.e(TAG, "Problem reading os.version", t);
+            }
+        }
+
+        if (_kernelVersion == null || _kernelVersion.trim().isEmpty()) {
+            try {
+                _kernelVersion = getString(R.string.kernel_info_unavailable);
+            } catch (Exception e) {
+                _kernelVersion = "Unavailable";
+            }
+        }
+
         return _kernelVersion;
     }
 }
