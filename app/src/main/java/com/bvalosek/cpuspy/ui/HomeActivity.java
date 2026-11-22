@@ -17,6 +17,7 @@ import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.view.LayoutInflater;
@@ -55,22 +56,24 @@ public class HomeActivity extends Activity
 
     public static boolean DEMO_MODE = false;
 
+    private boolean isDarkTheme() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        String themeMode = prefs.getString("theme_mode", "system");
+
+        if ("dark".equals(themeMode)) {
+            return true;
+        } else if ("light".equals(themeMode)) {
+            return false;
+        } else {
+            int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+            return (nightModeFlags == Configuration.UI_MODE_NIGHT_YES);
+        }
+    }
+
     /** Apply chosen theme before views are created */
     private void applyTheme() {
         try {
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-            String themeMode = prefs.getString("theme_mode", "system");
-
-            boolean isDark;
-            if ("dark".equals(themeMode)) {
-                isDark = true;
-            } else if ("light".equals(themeMode)) {
-                isDark = false;
-            } else {
-                int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-                isDark = (nightModeFlags == Configuration.UI_MODE_NIGHT_YES);
-            }
-
+            boolean isDark = isDarkTheme();
             if (isDark) {
                 setTheme(R.style.Theme_CpuSpy_Dark);
             } else {
@@ -78,6 +81,37 @@ public class HomeActivity extends Activity
             }
         } catch (Exception e) {
             Log.e(TAG, "Error applying theme", e);
+        }
+    }
+
+    /** Ensure status bar & navigation bar icons match the theme */
+    private void updateSystemBars() {
+        try {
+            boolean isDark = isDarkTheme();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                View decorView = getWindow().getDecorView();
+                int flags = decorView.getSystemUiVisibility();
+                if (isDark) {
+                    flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+                } else {
+                    flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    if (isDark) {
+                        flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+                    } else {
+                        flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+                    }
+                }
+                decorView.setSystemUiVisibility(flags);
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                getWindow().setStatusBarColor(isDark ? 0xFF121212 : 0xFFF8F9FA);
+                getWindow().setNavigationBarColor(isDark ? 0xFF121212 : 0xFFF8F9FA);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error updating system bars", e);
         }
     }
 
@@ -89,6 +123,7 @@ public class HomeActivity extends Activity
 
         try {
             setContentView(R.layout.home_layout);
+            updateSystemBars();
             _app = (CpuSpyApp)getApplicationContext();
             findViews();
 
@@ -128,6 +163,7 @@ public class HomeActivity extends Activity
     /** Update the view when the application regains focus */
     @Override public void onResume () {
         super.onResume();
+        updateSystemBars();
         try {
             refreshData();
         } catch (Exception e) {

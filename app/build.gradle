@@ -101,6 +101,12 @@ android {
         }
     }
 
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = "cpuspy-v${variant.versionName}-${variant.buildType.name}.apk"
+        }
+    }
+
     compileOptions {
         encoding "UTF-8"
         coreLibraryDesugaringEnabled true

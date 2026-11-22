@@ -4,6 +4,9 @@
     <style name="Theme.CpuSpy.Dark" parent="@android:style/Theme.DeviceDefault">
         <item name="android:windowBackground">#121212</item>
         <item name="android:colorBackground">#121212</item>
+        <item name="android:statusBarColor">#121212</item>
+        <item name="android:navigationBarColor">#121212</item>
+        <item name="android:windowLightStatusBar">false</item>
         <item name="appBackgroundColor">#121212</item>
         <item name="headerBackgroundColor">#1E1E1E</item>
         <item name="headerTextColor">#FFFFFF</item>
@@ -20,6 +23,10 @@
     <style name="Theme.CpuSpy.Light" parent="@android:style/Theme.DeviceDefault.Light">
         <item name="android:windowBackground">#F8F9FA</item>
         <item name="android:colorBackground">#F8F9FA</item>
+        <item name="android:statusBarColor">#F8F9FA</item>
+        <item name="android:navigationBarColor">#F8F9FA</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
         <item name="appBackgroundColor">#F8F9FA</item>
         <item name="headerBackgroundColor">#E8EAED</item>
         <item name="headerTextColor">#202124</item>
