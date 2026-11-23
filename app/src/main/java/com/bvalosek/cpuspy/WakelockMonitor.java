@@ -28,6 +28,29 @@ public class WakelockMonitor {
 
     private static final String TAG = "WakelockMonitor";
 
+    // Native system UIDs that don't have an APK in PackageManager
+    // UID -> [packageName, appNameEn, appNameRu]
+    private static final Map<Integer, String[]> SYSTEM_UID_MAP = new HashMap<>();
+    static {
+        SYSTEM_UID_MAP.put(0,    new String[]{"system.root", "Root Services", "Службы Root"});
+        SYSTEM_UID_MAP.put(1000, new String[]{"android", "Android System", "Система Android"});
+        SYSTEM_UID_MAP.put(1001, new String[]{"com.android.phone", "Phone / Telephony", "Телефон / Модем"});
+        SYSTEM_UID_MAP.put(1002, new String[]{"com.android.bluetooth", "Bluetooth", "Bluetooth"});
+        SYSTEM_UID_MAP.put(1010, new String[]{"system.wifi", "Wi-Fi Service", "Служба Wi-Fi"});
+        SYSTEM_UID_MAP.put(1013, new String[]{"android.media", "Media Server", "Медиасервер"});
+        SYSTEM_UID_MAP.put(1014, new String[]{"system.dhcp", "DHCP Client", "Служба DHCP"});
+        SYSTEM_UID_MAP.put(1021, new String[]{"system.gps", "GPS / Location", "Служба GPS / Геолокация"});
+        SYSTEM_UID_MAP.put(1027, new String[]{"com.android.nfc", "NFC Service", "Служба NFC"});
+        SYSTEM_UID_MAP.put(1036, new String[]{"system.logd", "Log Daemon (logd)", "Служба логирования (logd)"});
+        SYSTEM_UID_MAP.put(1040, new String[]{"system.cameraserver", "Camera Server (cameraserver)", "Служба камеры (cameraserver)"});
+        SYSTEM_UID_MAP.put(1041, new String[]{"system.audioserver", "Audio System (audioserver)", "Аудиосистема (audioserver)"});
+        SYSTEM_UID_MAP.put(1046, new String[]{"system.mediacodec", "Media Codecs (mediacodec)", "Медиакодеки (mediacodec)"});
+        SYSTEM_UID_MAP.put(1047, new String[]{"system.mediaextractor", "Media Extractor", "Медиаэкстрактор"});
+        SYSTEM_UID_MAP.put(1068, new String[]{"system.netd", "Network Daemon (netd)", "Сетевой демон (netd)"});
+        SYSTEM_UID_MAP.put(1073, new String[]{"system.statsd", "Stats Daemon (statsd)", "Служба метрик (statsd)"});
+        SYSTEM_UID_MAP.put(2000, new String[]{"com.android.shell", "Shell / ADB", "Консоль (Shell / ADB)"});
+    }
+
     public static class WakelockEntry {
         public String  name;          // tag or driver name
         public String  packageName;   // e.g. "com.google.android.gms", "android", null for kernel
@@ -40,13 +63,20 @@ public class WakelockMonitor {
 
         /** Display name suitable for UI */
         public String displayName() {
-            if (appName != null && !appName.isEmpty()) return appName;
-            if (name == null) return "";
-            int colon = name.indexOf(':');
-            if (colon > 0 && packageName != null) {
-                return name.substring(colon + 1);
+            String res;
+            if (appName != null && !appName.isEmpty()) {
+                res = appName;
+            } else if (name != null) {
+                int colon = name.indexOf(':');
+                if (colon > 0 && packageName != null) {
+                    res = name.substring(colon + 1);
+                } else {
+                    res = name;
+                }
+            } else {
+                res = "";
             }
-            return name;
+            return cleanStr(res);
         }
     }
 
@@ -93,12 +123,10 @@ public class WakelockMonitor {
         Map<String, WakelockEntry> appMap = new HashMap<>();
         Map<Integer, String> uidMap = new HashMap<>();
 
-        // Map well-known system UIDs
-        uidMap.put(1000, "android");
-        uidMap.put(1001, "com.android.phone");
-        uidMap.put(1002, "com.android.bluetooth");
-        uidMap.put(1013, "android.media");
-        uidMap.put(1027, "com.android.nfc");
+        // Map well-known system UIDs from SYSTEM_UID_MAP
+        for (Map.Entry<Integer, String[]> entry : SYSTEM_UID_MAP.entrySet()) {
+            uidMap.put(entry.getKey(), entry.getValue()[0]);
+        }
 
         PackageManager pm = null;
         if (context != null) {
@@ -221,7 +249,7 @@ public class WakelockMonitor {
             if ("apk".equals(type) && p.length >= 6) {
                 // p[4] = wakeups count, p[5] = package name
                 long wakeups = safeLong(p[4]);
-                String pkg = p[5].trim();
+                String pkg = cleanStr(p[5]);
                 if (!pkg.isEmpty()) {
                     uidMap.put(uid, pkg);
                     // Only add to display map if wakeups > 0!
@@ -239,6 +267,7 @@ public class WakelockMonitor {
                 }
             } else if ("wl".equals(type)) {
                 // p[4] = wakelock name
+                String wlName = cleanStr(p[4]);
                 // Look for "p" (partial wakelock) tag in remaining tokens
                 long partTime = 0;
                 long partCount = 0;
@@ -280,7 +309,7 @@ public class WakelockMonitor {
                 }
             } else if ("kwl".equals(type) && p.length >= 6) {
                 // Kernel wake lock: p[4] = name, p[5] = totalTimeMs, p[6] = count
-                String kwlName = p[4].trim();
+                String kwlName = cleanStr(p[4]);
                 long timeMs = safeLong(p[5]);
                 long count = (p.length > 6) ? safeLong(p[6]) : 0;
                 if (timeMs > 0 || count > 0) {
@@ -308,8 +337,8 @@ public class WakelockMonitor {
 
             int q1 = line.indexOf('\'');
             int q2 = line.lastIndexOf('\'');
-            String name = (q1 >= 0 && q2 > q1) ? line.substring(q1 + 1, q2) : null;
-            if (name == null) return;
+            String name = (q1 >= 0 && q2 > q1) ? cleanStr(line.substring(q1 + 1, q2)) : null;
+            if (name == null || name.isEmpty()) return;
 
             String pkg = null;
             int pkgIdx = line.indexOf("packageName=");
@@ -352,8 +381,8 @@ public class WakelockMonitor {
                 if (wakeups != null) {
                     for (File w : wakeups) {
                         if (!w.isDirectory()) continue;
-                        String name = readFileFirstLine(new File(w, "name"));
-                        if (name == null || name.isEmpty()) continue;
+                        String name = cleanStr(readFileFirstLine(new File(w, "name")));
+                        if (name.isEmpty()) continue;
                         long activeCount = safeLong(readFileFirstLine(new File(w, "active_count")));
                         long activeTime  = safeLong(readFileFirstLine(new File(w, "active_time_ms")));
                         long totalTime   = safeLong(readFileFirstLine(new File(w, "total_time_ms")));
@@ -380,32 +409,57 @@ public class WakelockMonitor {
     // Resolve user-friendly App Names from package names & UIDs
     // -------------------------------------------------------------------------
     private void resolveAppNames(Map<String, WakelockEntry> map, Map<Integer, String> uidMap, PackageManager pm) {
+        boolean isRu = java.util.Locale.getDefault().getLanguage().startsWith("ru");
         for (WakelockEntry e : map.values()) {
-            // Check if packageName is a raw UID like "uid:10238"
+            // Check if name or packageName is a raw UID like "uid:1041"
             if (e.name != null && e.name.startsWith("uid:")) {
                 int uidVal = safeInt(e.name.substring(4));
-                String resolvedPkg = uidMap.get(uidVal);
-                if (resolvedPkg == null && pm != null) {
-                    try {
-                        String[] pkgs = pm.getPackagesForUid(uidVal);
-                        if (pkgs != null && pkgs.length > 0) {
-                            resolvedPkg = pkgs[0];
-                            uidMap.put(uidVal, resolvedPkg);
-                        }
-                    } catch (Exception ignored) {}
-                }
-                if (resolvedPkg != null) {
-                    e.packageName = resolvedPkg;
+                if (SYSTEM_UID_MAP.containsKey(uidVal)) {
+                    String[] sys = SYSTEM_UID_MAP.get(uidVal);
+                    e.packageName = sys[0];
+                    e.appName = isRu ? sys[2] : sys[1];
+                } else if (uidVal < 10000) {
+                    e.packageName = "system.uid." + uidVal;
+                    e.appName = isRu ? ("Системная служба (UID " + uidVal + ")") : ("System Service (UID " + uidVal + ")");
+                } else {
+                    String resolvedPkg = uidMap.get(uidVal);
+                    if (resolvedPkg == null && pm != null) {
+                        try {
+                            String[] pkgs = pm.getPackagesForUid(uidVal);
+                            if (pkgs != null && pkgs.length > 0) {
+                                resolvedPkg = pkgs[0];
+                                uidMap.put(uidVal, resolvedPkg);
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                    if (resolvedPkg != null) {
+                        e.packageName = resolvedPkg;
+                    } else {
+                        e.packageName = "uid:" + uidVal;
+                        e.appName = isRu ? ("Удалённое приложение (UID " + uidVal + ")") : ("Uninstalled App (UID " + uidVal + ")");
+                    }
                 }
             }
 
+            // Check if packageName matches a known system UID entry
+            if (e.packageName != null && e.appName == null) {
+                for (String[] sys : SYSTEM_UID_MAP.values()) {
+                    if (sys[0].equals(e.packageName)) {
+                        e.appName = isRu ? sys[2] : sys[1];
+                        break;
+                    }
+                }
+            }
+
+            if (e.appName != null) continue;
+
             if (e.packageName == null) {
-                if (e.isApp) e.appName = e.name;
+                if (e.isApp) e.appName = cleanStr(e.name);
                 continue;
             }
 
             if ("android".equals(e.packageName)) {
-                e.appName = "Android System";
+                e.appName = isRu ? "Система Android" : "Android System";
                 continue;
             }
 
@@ -423,6 +477,11 @@ public class WakelockMonitor {
                 e.appName = e.packageName;
             }
         }
+    }
+
+    private static String cleanStr(String s) {
+        if (s == null) return "";
+        return s.replace("\"", "").replace("'", "").trim();
     }
 
     private static String extractPackage(String name) {

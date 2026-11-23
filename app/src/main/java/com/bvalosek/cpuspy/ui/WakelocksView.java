@@ -136,9 +136,9 @@ public class WakelocksView extends View {
                 mIconCache.put(e.packageName, icon);
             } catch (PackageManager.NameNotFoundException ex) {
                 // If package not found directly, try android framework icon
-                if ("android".equals(e.packageName)) {
+                if ("android".equals(e.packageName) || (e.packageName != null && e.packageName.startsWith("system."))) {
                     try {
-                        mIconCache.put("android", pm.getApplicationIcon("com.android.settings"));
+                        mIconCache.put(e.packageName, pm.getApplicationIcon("com.android.settings"));
                     } catch (Exception ignored) {
                         mIconCache.put(e.packageName, null);
                     }
@@ -227,6 +227,7 @@ public class WakelocksView extends View {
             } else {
                 pkgStr = isRu ? "Ядро / Аппаратный драйвер" : "Kernel / Hardware driver";
             }
+            if (pkgStr != null) pkgStr = pkgStr.replace("\"", "").trim();
             canvas.drawText(clipText(mPkgPaint, pkgStr, maxTextWidth), textX, pkgY, mPkgPaint);
 
             // --- 4. Stats: "164 wake ups, running 20s" ---
@@ -249,7 +250,8 @@ public class WakelocksView extends View {
             int index = (int)(event.getY() / mRowHeight);
             if (index >= 0 && index < mEntries.size()) {
                 WakelockEntry e = mEntries.get(index);
-                if (e.isApp && e.packageName != null && !"android".equals(e.packageName) && !e.packageName.startsWith("uid:")) {
+                if (e.isApp && e.packageName != null && !"android".equals(e.packageName)
+                        && !e.packageName.startsWith("uid:") && !e.packageName.startsWith("system.")) {
                     try {
                         Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
                         intent.setData(Uri.parse("package:" + e.packageName));

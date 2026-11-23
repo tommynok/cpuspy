@@ -31,6 +31,7 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.bvalosek.cpuspy.*;
 import com.bvalosek.cpuspy.CpuStateMonitor.CpuState;
@@ -64,6 +65,8 @@ public class HomeActivity extends Activity
     private View            _uiWakelocksLoading = null;
     private boolean         _showingWakelocks = false;
     private boolean         _hasRootAccess = false;
+    private boolean         _filterAppsOnly = true;
+    private List<WakelockEntry> _allWakelockEntries = new ArrayList<>();
 
     /** whether or not we're updating the data in the background */
     private boolean     _updatingData = false;
@@ -144,6 +147,8 @@ public class HomeActivity extends Activity
             findViews();
 
             setTitle("CPU Spy NG");
+            _filterAppsOnly = PreferenceManager.getDefaultSharedPreferences(this)
+                    .getBoolean("filter_apps_only", true);
             checkRootAccess();
 
             // see if we're updating data during a config change (rotate screen)
@@ -286,6 +291,21 @@ public class HomeActivity extends Activity
             wakelockItem.setEnabled(_hasRootAccess);
         }
 
+        MenuItem filterItem = menu.findItem(R.id.menu_filter);
+        if (filterItem != null) {
+            filterItem.setVisible(_showingWakelocks);
+            if (_showingWakelocks) {
+                Drawable icon = getDrawable(R.drawable.ic_menu_filter);
+                if (icon != null) {
+                    icon = icon.mutate();
+                    icon.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
+                    icon.setAlpha(_filterAppsOnly ? 255 : 120);
+                    filterItem.setIcon(icon);
+                }
+                filterItem.setTitle(_filterAppsOnly ? R.string.filter_apps_only : R.string.filter_all_wakelocks);
+            }
+        }
+
         MenuItem refreshItem = menu.findItem(R.id.menu_refresh);
         if (refreshItem != null && refreshItem.getIcon() != null) {
             Drawable icon = refreshItem.getIcon().mutate();
@@ -374,6 +394,17 @@ public class HomeActivity extends Activity
                 } else {
                     showWakelocksView();
                 }
+                invalidateOptionsMenu();
+                return true;
+            }
+            else if (itemId == R.id.menu_filter) {
+                _filterAppsOnly = !_filterAppsOnly;
+                PreferenceManager.getDefaultSharedPreferences(this)
+                        .edit().putBoolean("filter_apps_only", _filterAppsOnly).apply();
+                Toast.makeText(this,
+                        _filterAppsOnly ? R.string.filter_apps_only : R.string.filter_all_wakelocks,
+                        Toast.LENGTH_SHORT).show();
+                updateWakelocksDisplay();
                 invalidateOptionsMenu();
                 return true;
             }
@@ -570,6 +601,22 @@ public class HomeActivity extends Activity
         }
     }
 
+    /** Update WakelocksView applying current filter (Apps only vs All) */
+    private void updateWakelocksDisplay() {
+        if (_uiWakelocksView == null) return;
+        List<WakelockEntry> displayList = new ArrayList<>();
+        for (WakelockEntry e : _allWakelockEntries) {
+            if (_filterAppsOnly) {
+                if (e.isApp) {
+                    displayList.add(e);
+                }
+            } else {
+                displayList.add(e);
+            }
+        }
+        _uiWakelocksView.setEntries(displayList, this);
+    }
+
     /** Load wakelock entries off the UI thread */
     protected class RefreshWakelocksTask extends AsyncTask<Void, Void, List<WakelockEntry>> {
 
@@ -596,6 +643,7 @@ public class HomeActivity extends Activity
                     _uiWakelocksLoading.setVisibility(View.GONE);
                 }
                 if (entries == null || entries.isEmpty()) {
+                    _allWakelockEntries.clear();
                     if (_uiWakelocksWarning != null) {
                         _uiWakelocksWarning.setText(R.string.wakelocks_no_root);
                         _uiWakelocksWarning.setVisibility(View.VISIBLE);
@@ -605,12 +653,13 @@ public class HomeActivity extends Activity
                     }
                 } else {
                     _hasRootAccess = true;
+                    _allWakelockEntries = entries;
                     invalidateOptionsMenu();
                     if (_uiWakelocksWarning != null)
                         _uiWakelocksWarning.setVisibility(View.GONE);
                     if (_uiWakelocksView != null) {
                         _uiWakelocksView.setVisibility(View.VISIBLE);
-                        _uiWakelocksView.setEntries(entries, HomeActivity.this);
+                        updateWakelocksDisplay();
                     }
                 }
             } catch (Exception e) {

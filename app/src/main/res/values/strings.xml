@@ -24,4 +24,7 @@
     <string name="wakelocks_no_root">Cannot read wakelocks.\nRoot (KernelSU / Magisk) or Shizuku required.</string>
     <string name="wakelocks_title">CPU Spy NG • Wakelocks</string>
     <string name="wakelocks_loading">Loading wakelocks…</string>
+    <string name="menu_filter">Filter</string>
+    <string name="filter_apps_only">Apps only</string>
+    <string name="filter_all_wakelocks">All wakelocks (including kernel)</string>
 </resources>
