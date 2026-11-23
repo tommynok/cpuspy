@@ -138,6 +138,49 @@
                 android:textSize="13sp"
                 android:visibility="gone" />
 
+            <LinearLayout
+                android:id="@+id/ui_wakelocks_filter_bar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:layout_marginBottom="4dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/ui_filter_icon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_menu_filter"
+                    android:contentDescription="@string/menu_filter" />
+
+                <TextView
+                    android:id="@+id/ui_filter_text"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="10dp"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="?attr/percentageTextColor"
+                    android:text="@string/filter_apps_only" />
+
+                <TextView
+                    android:id="@+id/ui_filter_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"
+                    android:textColor="?attr/secondaryTextColor"
+                    android:text="@string/filter_tap_to_change" />
+            </LinearLayout>
+
             <com.bvalosek.cpuspy.ui.WakelocksView
                 android:id="@+id/ui_wakelocks_view"
                 android:layout_width="match_parent"

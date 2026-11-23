@@ -27,4 +27,5 @@
     <string name="menu_filter">Filter</string>
     <string name="filter_apps_only">Apps only</string>
     <string name="filter_all_wakelocks">All wakelocks (including kernel)</string>
+    <string name="filter_tap_to_change">Tap to change</string>
 </resources>

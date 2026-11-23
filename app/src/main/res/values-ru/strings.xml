@@ -27,4 +27,5 @@
     <string name="menu_filter">Фильтр</string>
     <string name="filter_apps_only">Только приложения</string>
     <string name="filter_all_wakelocks">Все вейклоки (включая ядро)</string>
+    <string name="filter_tap_to_change">Нажмите для смены</string>
 </resources>

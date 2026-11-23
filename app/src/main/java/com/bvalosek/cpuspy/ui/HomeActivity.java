@@ -28,6 +28,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -63,6 +64,9 @@ public class HomeActivity extends Activity
     private WakelocksView   _uiWakelocksView = null;
     private TextView        _uiWakelocksWarning = null;
     private View            _uiWakelocksLoading = null;
+    private View            _uiWakelocksFilterBar = null;
+    private ImageView       _uiFilterIcon = null;
+    private TextView        _uiFilterText = null;
     private boolean         _showingWakelocks = false;
     private boolean         _hasRootAccess = false;
     private boolean         _filterAppsOnly = true;
@@ -239,6 +243,17 @@ public class HomeActivity extends Activity
             _uiWakelocksView    = (WakelocksView)findViewById(R.id.ui_wakelocks_view);
             _uiWakelocksWarning = (TextView)findViewById(R.id.ui_wakelocks_warning);
             _uiWakelocksLoading = findViewById(R.id.ui_wakelocks_loading);
+            _uiWakelocksFilterBar = findViewById(R.id.ui_wakelocks_filter_bar);
+            _uiFilterIcon       = (ImageView)findViewById(R.id.ui_filter_icon);
+            _uiFilterText       = (TextView)findViewById(R.id.ui_filter_text);
+            if (_uiWakelocksFilterBar != null) {
+                _uiWakelocksFilterBar.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        toggleFilter();
+                    }
+                });
+            }
         } catch (Exception e) {
             Log.e(TAG, "Error finding views", e);
         }
@@ -250,6 +265,7 @@ public class HomeActivity extends Activity
         if (_uiPageFreq != null) _uiPageFreq.setVisibility(View.VISIBLE);
         if (_uiPageWakelocks != null) _uiPageWakelocks.setVisibility(View.GONE);
         setTitle("CPU Spy NG");
+        invalidateOptionsMenu();
     }
 
     /** Show Wakelocks page */
@@ -257,7 +273,8 @@ public class HomeActivity extends Activity
         _showingWakelocks = true;
         if (_uiPageFreq != null) _uiPageFreq.setVisibility(View.GONE);
         if (_uiPageWakelocks != null) _uiPageWakelocks.setVisibility(View.VISIBLE);
-        setTitle(R.string.wakelocks_title);
+        setTitle("CPU Spy NG");
+        invalidateOptionsMenu();
         refreshWakelocks();
     }
 
@@ -398,14 +415,7 @@ public class HomeActivity extends Activity
                 return true;
             }
             else if (itemId == R.id.menu_filter) {
-                _filterAppsOnly = !_filterAppsOnly;
-                PreferenceManager.getDefaultSharedPreferences(this)
-                        .edit().putBoolean("filter_apps_only", _filterAppsOnly).apply();
-                Toast.makeText(this,
-                        _filterAppsOnly ? R.string.filter_apps_only : R.string.filter_all_wakelocks,
-                        Toast.LENGTH_SHORT).show();
-                updateWakelocksDisplay();
-                invalidateOptionsMenu();
+                toggleFilter();
                 return true;
             }
             else if (itemId == R.id.menu_refresh) {
@@ -601,6 +611,18 @@ public class HomeActivity extends Activity
         }
     }
 
+    /** Toggle filter between Apps only and All wakelocks */
+    private void toggleFilter() {
+        _filterAppsOnly = !_filterAppsOnly;
+        PreferenceManager.getDefaultSharedPreferences(this)
+                .edit().putBoolean("filter_apps_only", _filterAppsOnly).apply();
+        Toast.makeText(this,
+                _filterAppsOnly ? R.string.filter_apps_only : R.string.filter_all_wakelocks,
+                Toast.LENGTH_SHORT).show();
+        updateWakelocksDisplay();
+        invalidateOptionsMenu();
+    }
+
     /** Update WakelocksView applying current filter (Apps only vs All) */
     private void updateWakelocksDisplay() {
         if (_uiWakelocksView == null) return;
@@ -615,6 +637,16 @@ public class HomeActivity extends Activity
             }
         }
         _uiWakelocksView.setEntries(displayList, this);
+
+        if (_uiFilterText != null) {
+            _uiFilterText.setText(_filterAppsOnly ? R.string.filter_apps_only : R.string.filter_all_wakelocks);
+        }
+        if (_uiFilterIcon != null) {
+            boolean dark = isDarkTheme();
+            int iconColor = dark ? 0xFF90CAF9 : 0xFF1976D2;
+            _uiFilterIcon.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
+            _uiFilterIcon.setAlpha(_filterAppsOnly ? 255 : 140);
+        }
     }
 
     /** Load wakelock entries off the UI thread */
@@ -627,6 +659,9 @@ public class HomeActivity extends Activity
             }
             if (_uiWakelocksWarning != null) {
                 _uiWakelocksWarning.setVisibility(View.GONE);
+            }
+            if (_uiWakelocksFilterBar != null) {
+                _uiWakelocksFilterBar.setVisibility(View.GONE);
             }
         }
 
@@ -644,6 +679,9 @@ public class HomeActivity extends Activity
                 }
                 if (entries == null || entries.isEmpty()) {
                     _allWakelockEntries.clear();
+                    if (_uiWakelocksFilterBar != null) {
+                        _uiWakelocksFilterBar.setVisibility(View.GONE);
+                    }
                     if (_uiWakelocksWarning != null) {
                         _uiWakelocksWarning.setText(R.string.wakelocks_no_root);
                         _uiWakelocksWarning.setVisibility(View.VISIBLE);
@@ -657,6 +695,9 @@ public class HomeActivity extends Activity
                     invalidateOptionsMenu();
                     if (_uiWakelocksWarning != null)
                         _uiWakelocksWarning.setVisibility(View.GONE);
+                    if (_uiWakelocksFilterBar != null) {
+                        _uiWakelocksFilterBar.setVisibility(View.VISIBLE);
+                    }
                     if (_uiWakelocksView != null) {
                         _uiWakelocksView.setVisibility(View.VISIBLE);
                         updateWakelocksDisplay();

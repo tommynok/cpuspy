@@ -10,13 +10,13 @@
     <item android:id="@+id/menu_filter"
           android:title="@string/menu_filter"
           android:icon="@drawable/ic_menu_filter"
-          android:showAsAction="ifRoom"
+          android:showAsAction="always"
     />
 
     <item android:id="@+id/menu_refresh"
           android:title="@string/menu_refresh"
           android:icon="@drawable/ic_menu_refresh"
-          android:showAsAction="ifRoom"
+          android:showAsAction="always"
     />
     
     <item android:id="@+id/menu_reset"
