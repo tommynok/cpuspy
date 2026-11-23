@@ -104,6 +104,30 @@
             android:paddingTop="4dp"
             android:paddingBottom="8dp">
 
+            <LinearLayout
+                android:id="@+id/ui_wakelocks_loading"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:paddingTop="48dp"
+                android:paddingBottom="48dp"
+                android:visibility="gone">
+
+                <ProgressBar
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:indeterminate="true" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/wakelocks_loading"
+                    android:textColor="?attr/secondaryTextColor"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
             <TextView
                 android:id="@+id/ui_wakelocks_warning"
                 android:layout_width="match_parent"

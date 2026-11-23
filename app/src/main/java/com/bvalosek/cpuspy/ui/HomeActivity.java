@@ -61,6 +61,7 @@ public class HomeActivity extends Activity
     private View            _uiPageWakelocks = null;
     private WakelocksView   _uiWakelocksView = null;
     private TextView        _uiWakelocksWarning = null;
+    private View            _uiWakelocksLoading = null;
     private boolean         _showingWakelocks = false;
     private boolean         _hasRootAccess = false;
 
@@ -232,6 +233,7 @@ public class HomeActivity extends Activity
             _uiPageWakelocks    = findViewById(R.id.ui_page_wakelocks);
             _uiWakelocksView    = (WakelocksView)findViewById(R.id.ui_wakelocks_view);
             _uiWakelocksWarning = (TextView)findViewById(R.id.ui_wakelocks_warning);
+            _uiWakelocksLoading = findViewById(R.id.ui_wakelocks_loading);
         } catch (Exception e) {
             Log.e(TAG, "Error finding views", e);
         }
@@ -573,6 +575,12 @@ public class HomeActivity extends Activity
 
         @Override protected void onPreExecute() {
             _updatingWakelocks = true;
+            if (_uiWakelocksLoading != null) {
+                _uiWakelocksLoading.setVisibility(View.VISIBLE);
+            }
+            if (_uiWakelocksWarning != null) {
+                _uiWakelocksWarning.setVisibility(View.GONE);
+            }
         }
 
         @Override protected List<WakelockEntry> doInBackground(Void... v) {
@@ -584,6 +592,9 @@ public class HomeActivity extends Activity
         @Override protected void onPostExecute(List<WakelockEntry> entries) {
             try {
                 _updatingWakelocks = false;
+                if (_uiWakelocksLoading != null) {
+                    _uiWakelocksLoading.setVisibility(View.GONE);
+                }
                 if (entries == null || entries.isEmpty()) {
                     if (_uiWakelocksWarning != null) {
                         _uiWakelocksWarning.setText(R.string.wakelocks_no_root);

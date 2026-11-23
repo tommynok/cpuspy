@@ -22,7 +22,7 @@ import java.util.Map;
  * Reads wakelock data:
  *   1. Root (su): dumpsys batterystats --checkin (apps + wakeups + running times)
  *      + dumpsys power (currently active locks)
- *   2. Fallback: /sys/class/wakeup/ or /sys/kernel/debug/wakeup_sources
+ *   2. Fallback: /sys/class/wakeup/ (only if batterystats yielded no data)
  */
 public class WakelockMonitor {
 
@@ -81,7 +81,6 @@ public class WakelockMonitor {
         return false;
     }
 
-    /** Overload without context for compatibility */
     public void updateEntries() {
         updateEntries(null);
     }
@@ -96,8 +95,11 @@ public class WakelockMonitor {
 
         // Map well-known system UIDs
         uidMap.put(1000, "android");
+        uidMap.put(1001, "com.android.phone");
+        uidMap.put(1002, "com.android.bluetooth");
+        uidMap.put(1013, "android.media");
+        uidMap.put(1027, "com.android.nfc");
 
-        // Pre-populate UIDs from installed packages if context is available
         PackageManager pm = null;
         if (context != null) {
             try {
@@ -105,25 +107,31 @@ public class WakelockMonitor {
             } catch (Exception ignored) {}
         }
 
-        // 1. Try Root session with dumpsys batterystats --checkin + dumpsys power
-        boolean rootSuccess = readViaRoot(appMap, uidMap, pm);
+        // 1. Fast root execution: dumpsys batterystats --checkin + dumpsys power
+        readViaRoot(appMap, uidMap, pm);
 
-        // 2. If batterystats checkin didn't yield apps, fallback to sysfs / dumpsys power
+        // 2. Fallback only if no data was retrieved
         if (appMap.isEmpty()) {
             readDirectSysfs(appMap);
         }
 
-        // 3. Resolve human-readable app names
-        resolveAppNames(appMap, pm);
+        // 3. Resolve human-readable app names and try resolving raw UIDs
+        resolveAppNames(appMap, uidMap, pm);
 
-        List<WakelockEntry> result = new ArrayList<>(appMap.values());
+        // 4. FILTER: discard all entries that have zero activity
+        List<WakelockEntry> filtered = new ArrayList<>();
+        for (WakelockEntry e : appMap.values()) {
+            if (e.hitCount > 0 || e.totalTimeMs > 0 || e.isActive) {
+                filtered.add(e);
+            }
+        }
 
-        // Sort:
+        // 5. Sort:
         // 1) Active right now
         // 2) Apps before kernel drivers
         // 3) By wake count (hitCount) desc
         // 4) By running time desc
-        Collections.sort(result, new Comparator<WakelockEntry>() {
+        Collections.sort(filtered, new Comparator<WakelockEntry>() {
             @Override
             public int compare(WakelockEntry a, WakelockEntry b) {
                 if (a.isActive != b.isActive) return a.isActive ? -1 : 1;
@@ -133,29 +141,24 @@ public class WakelockMonitor {
             }
         });
 
-        _entries = result;
+        _entries = filtered;
     }
 
     // -------------------------------------------------------------------------
-    // Method 1: Interactive Root Shell (KernelSU / Magisk / APatch)
-    // Runs dumpsys batterystats --checkin + dumpsys power in ONE root session.
+    // Method 1: Fast Interactive Root Shell
+    // Runs dumpsys batterystats --checkin + dumpsys power in ONE fast session.
     // -------------------------------------------------------------------------
-    private boolean readViaRoot(Map<String, WakelockEntry> map, Map<Integer, String> uidMap, PackageManager pm) {
+    private void readViaRoot(Map<String, WakelockEntry> map, Map<Integer, String> uidMap, PackageManager pm) {
         try {
             ProcessBuilder pb = new ProcessBuilder("su");
             pb.redirectErrorStream(true);
             Process p = pb.start();
 
             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(p.getOutputStream()));
-            // Try charged checkin first, then general checkin
             writer.write("echo '===BATTERYSTATS_CHECKIN==='\n");
-            writer.write("dumpsys batterystats --charged --checkin 2>/dev/null || dumpsys batterystats --checkin 2>/dev/null\n");
+            writer.write("dumpsys batterystats --checkin 2>/dev/null\n");
             writer.write("echo '===DUMPSYS_POWER==='\n");
             writer.write("dumpsys power 2>/dev/null\n");
-            writer.write("echo '===SYSFS_WAKEUP==='\n");
-            writer.write("if [ -f /sys/kernel/debug/wakeup_sources ]; then cat /sys/kernel/debug/wakeup_sources; ");
-            writer.write("elif [ -d /sys/class/wakeup ]; then for d in /sys/class/wakeup/wakeup*; do ");
-            writer.write("if [ -d \"$d\" ]; then echo \"$(cat $d/name 2>/dev/null) $(cat $d/active_count 2>/dev/null) 0 0 0 $(cat $d/active_time_ms 2>/dev/null) $(cat $d/total_time_ms 2>/dev/null)\"; fi; done; fi\n");
             writer.write("echo '===END==='\n");
             writer.write("exit\n");
             writer.flush();
@@ -163,7 +166,7 @@ public class WakelockMonitor {
 
             BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
             String line;
-            int section = 0; // 1 = checkin, 2 = dumpsys power, 3 = sysfs
+            int section = 0; // 1 = checkin, 2 = dumpsys power
             boolean inPowerWakeLocks = false;
 
             while ((line = reader.readLine()) != null) {
@@ -172,9 +175,6 @@ public class WakelockMonitor {
                     continue;
                 } else if (line.contains("===DUMPSYS_POWER===")) {
                     section = 2;
-                    continue;
-                } else if (line.contains("===SYSFS_WAKEUP===")) {
-                    section = 3;
                     continue;
                 } else if (line.contains("===END===")) {
                     break;
@@ -194,20 +194,13 @@ public class WakelockMonitor {
                             parsePowerActiveLine(line, map);
                         }
                     }
-                } else if (section == 3) {
-                    // Only use sysfs if no app wakelocks found yet
-                    if (map.isEmpty()) {
-                        parseWakeupSourceLine(line, map);
-                    }
                 }
             }
 
             p.waitFor();
             reader.close();
-            return !map.isEmpty();
         } catch (Exception e) {
             Log.d(TAG, "Root execution failed: " + e.getMessage());
-            return false;
         }
     }
 
@@ -223,30 +216,30 @@ public class WakelockMonitor {
             if (p.length < 5) return;
 
             int uid = safeInt(p[1]);
-            String cat = p[2].trim();
             String type = p[3].trim();
 
-            // We accept 'l' (since charge), 'u' (unplugged), or 'i' (cumulative)
             if ("apk".equals(type) && p.length >= 6) {
                 // p[4] = wakeups count, p[5] = package name
                 long wakeups = safeLong(p[4]);
                 String pkg = p[5].trim();
                 if (!pkg.isEmpty()) {
                     uidMap.put(uid, pkg);
-                    WakelockEntry e = map.get(pkg);
-                    if (e == null) {
-                        e = new WakelockEntry();
-                        e.name = pkg;
-                        e.packageName = pkg;
-                        e.isApp = true;
-                        map.put(pkg, e);
+                    // Only add to display map if wakeups > 0!
+                    if (wakeups > 0) {
+                        WakelockEntry e = map.get(pkg);
+                        if (e == null) {
+                            e = new WakelockEntry();
+                            e.name = pkg;
+                            e.packageName = pkg;
+                            e.isApp = true;
+                            map.put(pkg, e);
+                        }
+                        e.hitCount += wakeups;
                     }
-                    e.hitCount += wakeups;
                 }
             } else if ("wl".equals(type)) {
                 // p[4] = wakelock name
                 // Look for "p" (partial wakelock) tag in remaining tokens
-                String lockName = p[4].trim();
                 long partTime = 0;
                 long partCount = 0;
                 for (int i = 5; i < p.length; i++) {
@@ -257,6 +250,7 @@ public class WakelockMonitor {
                     }
                 }
 
+                // Only record if this wakelock was actually held
                 if (partTime > 0 || partCount > 0) {
                     String pkg = uidMap.get(uid);
                     if (pkg == null && pm != null) {
@@ -312,14 +306,10 @@ public class WakelockMonitor {
             line = line.trim();
             if (line.isEmpty()) return;
 
-            String name = null;
             int q1 = line.indexOf('\'');
             int q2 = line.lastIndexOf('\'');
-            if (q1 >= 0 && q2 > q1) {
-                name = line.substring(q1 + 1, q2);
-            } else {
-                return;
-            }
+            String name = (q1 >= 0 && q2 > q1) ? line.substring(q1 + 1, q2) : null;
+            if (name == null) return;
 
             String pkg = null;
             int pkgIdx = line.indexOf("packageName=");
@@ -386,36 +376,29 @@ public class WakelockMonitor {
         }
     }
 
-    private void parseWakeupSourceLine(String line, Map<String, WakelockEntry> map) {
-        try {
-            String[] f = line.trim().split("\\s+");
-            if (f.length < 7) return;
-
-            String name = f[0];
-            if ("name".equalsIgnoreCase(name)) return; // skip header
-
-            long hitCount      = safeLong(f[1]);
-            long activeSinceMs = safeLong(f[5]);
-            long totalTimeMs   = safeLong(f[6]);
-
-            if (hitCount == 0 && totalTimeMs == 0 && activeSinceMs == 0) return;
-
-            WakelockEntry e = new WakelockEntry();
-            e.name = name;
-            e.hitCount = hitCount;
-            e.activeSinceMs = activeSinceMs;
-            e.totalTimeMs = totalTimeMs;
-            e.isActive = (activeSinceMs > 0);
-            e.isApp = false;
-            map.put(name, e);
-        } catch (Exception ignored) {}
-    }
-
     // -------------------------------------------------------------------------
-    // Resolve user-friendly App Names from package names
+    // Resolve user-friendly App Names from package names & UIDs
     // -------------------------------------------------------------------------
-    private void resolveAppNames(Map<String, WakelockEntry> map, PackageManager pm) {
+    private void resolveAppNames(Map<String, WakelockEntry> map, Map<Integer, String> uidMap, PackageManager pm) {
         for (WakelockEntry e : map.values()) {
+            // Check if packageName is a raw UID like "uid:10238"
+            if (e.name != null && e.name.startsWith("uid:")) {
+                int uidVal = safeInt(e.name.substring(4));
+                String resolvedPkg = uidMap.get(uidVal);
+                if (resolvedPkg == null && pm != null) {
+                    try {
+                        String[] pkgs = pm.getPackagesForUid(uidVal);
+                        if (pkgs != null && pkgs.length > 0) {
+                            resolvedPkg = pkgs[0];
+                            uidMap.put(uidVal, resolvedPkg);
+                        }
+                    } catch (Exception ignored) {}
+                }
+                if (resolvedPkg != null) {
+                    e.packageName = resolvedPkg;
+                }
+            }
+
             if (e.packageName == null) {
                 if (e.isApp) e.appName = e.name;
                 continue;

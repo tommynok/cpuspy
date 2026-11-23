@@ -23,4 +23,5 @@
     <string name="menu_frequencies">Частоты</string>
     <string name="wakelocks_no_root">Нет доступа к вейклокам.\nТребуется Root (KernelSU / Magisk) или Shizuku.</string>
     <string name="wakelocks_title">CPU Spy NG • Вейклоки</string>
+    <string name="wakelocks_loading">Сбор данных о вейклоках…</string>
 </resources>
