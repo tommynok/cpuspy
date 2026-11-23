@@ -577,7 +577,7 @@ public class HomeActivity extends Activity
 
         @Override protected List<WakelockEntry> doInBackground(Void... v) {
             WakelockMonitor monitor = new WakelockMonitor();
-            monitor.updateEntries();
+            monitor.updateEntries(HomeActivity.this);
             return monitor.getEntries();
         }
 
