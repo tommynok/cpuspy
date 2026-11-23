@@ -43,6 +43,7 @@ public class HomeActivity extends Activity
     private CpuSpyApp _app = null;
 
     // the views
+    private CpuStatesChartView _uiStatesChart = null;
     private LinearLayout    _uiStatesView = null;
     private TextView        _uiAdditionalStates = null;
     private TextView        _uiTotalStateTime = null;
@@ -178,6 +179,7 @@ public class HomeActivity extends Activity
     /** Map all of the UI elements to member variables */
     private void findViews() {
         try {
+            _uiStatesChart = (CpuStatesChartView)findViewById(R.id.ui_states_chart);
             _uiStatesView = (LinearLayout)findViewById(R.id.ui_states_view);
             _uiKernelString = (TextView)findViewById(R.id.ui_kernel_string);
             _uiAdditionalStates = (TextView)findViewById(
@@ -293,13 +295,16 @@ public class HomeActivity extends Activity
          * extraStates (missing) */
         try {
             CpuStateMonitor monitor = _app.getCpuStateMonitor();
-            _uiStatesView.removeAllViews();
+            if (_uiStatesView != null) {
+                _uiStatesView.removeAllViews();
+            }
+            List<CpuState> activeStates = new ArrayList<CpuState>();
             List<String> extraStates = new ArrayList<String>();
 
             for (CpuState state : monitor.getStates()) {
                 try {
                     if (state.duration > 0) {
-                        generateStateRow(state, _uiStatesView);
+                        activeStates.add(state);
                     } else {
                         if (state.freq == 0) {
                             extraStates.add(getString(R.string.state_deep_sleep));
@@ -312,16 +317,20 @@ public class HomeActivity extends Activity
                 }
             }
 
-            if ( monitor.getStates().size() == 0) {
+            if (monitor.getStates().size() == 0) {
                 _uiStatesWarning.setVisibility(View.VISIBLE);
                 _uiHeaderTotalStateTime.setVisibility(View.GONE);
                 _uiTotalStateTime.setVisibility(View.GONE);
-                _uiStatesView.setVisibility(View.GONE);
+                if (_uiStatesView != null) _uiStatesView.setVisibility(View.GONE);
+                if (_uiStatesChart != null) _uiStatesChart.setVisibility(View.GONE);
             } else {
                 _uiStatesWarning.setVisibility(View.GONE);
                 _uiHeaderTotalStateTime.setVisibility(View.VISIBLE);
                 _uiTotalStateTime.setVisibility(View.VISIBLE);
-                _uiStatesView.setVisibility(View.VISIBLE);
+                if (_uiStatesChart != null) {
+                    _uiStatesChart.setVisibility(View.VISIBLE);
+                    _uiStatesChart.setData(activeStates, monitor.getTotalStateTime(), this);
+                }
             }
 
             long totTime = monitor.getTotalStateTime() / 100;
