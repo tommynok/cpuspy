@@ -16,6 +16,8 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.graphics.PorterDuff;
+import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -262,11 +264,40 @@ public class HomeActivity extends Activity
         super.onBackPressed();
     }
 
+    /** Update menu icons and states (alarm / chart, tint for current theme, enabled if root) */
+    private void updateMenuIcons(Menu menu) {
+        if (menu == null) return;
+        boolean dark = isDarkTheme();
+        int iconColor = dark ? 0xFFFFFFFF : 0xFF202124;
+
+        MenuItem wakelockItem = menu.findItem(R.id.menu_wakelocks);
+        if (wakelockItem != null) {
+            int iconRes = _showingWakelocks ? R.drawable.ic_menu_chart : R.drawable.ic_menu_alarm;
+            Drawable icon = getDrawable(iconRes);
+            if (icon != null) {
+                icon = icon.mutate();
+                icon.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
+                icon.setAlpha(_hasRootAccess ? 255 : 90);
+                wakelockItem.setIcon(icon);
+            }
+            wakelockItem.setTitle(_showingWakelocks ? R.string.menu_frequencies : R.string.menu_wakelocks);
+            wakelockItem.setEnabled(_hasRootAccess);
+        }
+
+        MenuItem refreshItem = menu.findItem(R.id.menu_refresh);
+        if (refreshItem != null && refreshItem.getIcon() != null) {
+            Drawable icon = refreshItem.getIcon().mutate();
+            icon.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
+            refreshItem.setIcon(icon);
+        }
+    }
+
     /** called when we want to inflate the menu */
     @Override public boolean onCreateOptionsMenu(Menu menu) {
         try {
             MenuInflater inflater = getMenuInflater();
             inflater.inflate(R.menu.home_menu, menu);
+            updateMenuIcons(menu);
         } catch (Exception e) {
             Log.e(TAG, "Error creating menu", e);
         }
@@ -276,20 +307,7 @@ public class HomeActivity extends Activity
     /** Update menu icons and states (alarm / chart, enabled if root) */
     @Override public boolean onPrepareOptionsMenu(Menu menu) {
         try {
-            MenuItem wakelockItem = menu.findItem(R.id.menu_wakelocks);
-            if (wakelockItem != null) {
-                if (_showingWakelocks) {
-                    wakelockItem.setIcon(R.drawable.ic_menu_chart);
-                    wakelockItem.setTitle(R.string.menu_frequencies);
-                } else {
-                    wakelockItem.setIcon(R.drawable.ic_menu_alarm);
-                    wakelockItem.setTitle(R.string.menu_wakelocks);
-                }
-                wakelockItem.setEnabled(_hasRootAccess);
-                if (wakelockItem.getIcon() != null) {
-                    wakelockItem.getIcon().setAlpha(_hasRootAccess ? 255 : 90);
-                }
-            }
+            updateMenuIcons(menu);
         } catch (Exception e) {
             Log.e(TAG, "Error preparing menu", e);
         }
