@@ -54,14 +54,13 @@ public class HomeActivity extends Activity
     private TextView        _uiStatesWarning = null;
     private TextView        _uiKernelString = null;
 
-    // tab views
-    private TextView        _uiTabFreq = null;
-    private TextView        _uiTabWakelocks = null;
+    // pages
     private View            _uiPageFreq = null;
     private View            _uiPageWakelocks = null;
     private WakelocksView   _uiWakelocksView = null;
     private TextView        _uiWakelocksWarning = null;
     private boolean         _showingWakelocks = false;
+    private boolean         _hasRootAccess = false;
 
     /** whether or not we're updating the data in the background */
     private boolean     _updatingData = false;
@@ -141,7 +140,8 @@ public class HomeActivity extends Activity
             _app = (CpuSpyApp)getApplicationContext();
             findViews();
 
-            setTitle(getString(R.string.app_name) + " v" + BuildConfig.VERSION_NAME);
+            setTitle("CPU Spy NG");
+            checkRootAccess();
 
             // see if we're updating data during a config change (rotate screen)
             if (savedInstanceState != null) {
@@ -189,6 +189,28 @@ public class HomeActivity extends Activity
         }
     }
 
+    /** Check whether device has root (KernelSU / Magisk / APatch) */
+    private void checkRootAccess() {
+        _hasRootAccess = WakelockMonitor.isRootAvailable();
+        new AsyncTask<Void, Void, Boolean>() {
+            @Override
+            protected Boolean doInBackground(Void... voids) {
+                try {
+                    Process p = Runtime.getRuntime().exec(new String[]{"su", "-c", "id"});
+                    int exit = p.waitFor();
+                    return exit == 0;
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+            @Override
+            protected void onPostExecute(Boolean hasRoot) {
+                _hasRootAccess = hasRoot || WakelockMonitor.isRootAvailable();
+                invalidateOptionsMenu();
+            }
+        }.execute();
+    }
+
     /** Map all of the UI elements to member variables */
     private void findViews() {
         try {
@@ -204,61 +226,40 @@ public class HomeActivity extends Activity
             _uiStatesWarning = (TextView)findViewById(R.id.ui_states_warning);
             _uiTotalStateTime = (TextView)findViewById(R.id.ui_total_state_time);
 
-            // tab strip
-            _uiTabFreq       = (TextView)findViewById(R.id.ui_tab_freq);
-            _uiTabWakelocks  = (TextView)findViewById(R.id.ui_tab_wakelocks);
-            _uiPageFreq      = findViewById(R.id.ui_page_freq);
-            _uiPageWakelocks = findViewById(R.id.ui_page_wakelocks);
+            _uiPageFreq         = findViewById(R.id.ui_page_freq);
+            _uiPageWakelocks    = findViewById(R.id.ui_page_wakelocks);
             _uiWakelocksView    = (WakelocksView)findViewById(R.id.ui_wakelocks_view);
             _uiWakelocksWarning = (TextView)findViewById(R.id.ui_wakelocks_warning);
-
-            if (_uiTabFreq != null) {
-                _uiTabFreq.setOnClickListener(new View.OnClickListener() {
-                    @Override public void onClick(View v) { showTab(false); }
-                });
-            }
-            if (_uiTabWakelocks != null) {
-                _uiTabWakelocks.setOnClickListener(new View.OnClickListener() {
-                    @Override public void onClick(View v) { showTab(true); }
-                });
-            }
         } catch (Exception e) {
             Log.e(TAG, "Error finding views", e);
         }
     }
 
-    /** Switch between Frequencies and Wakelocks pages */
-    private void showTab(boolean wakelocks) {
-        try {
-            _showingWakelocks = wakelocks;
-            if (_uiPageFreq != null)
-                _uiPageFreq.setVisibility(wakelocks ? View.GONE : View.VISIBLE);
-            if (_uiPageWakelocks != null)
-                _uiPageWakelocks.setVisibility(wakelocks ? View.VISIBLE : View.GONE);
+    /** Show Frequencies page */
+    private void showFrequenciesView() {
+        _showingWakelocks = false;
+        if (_uiPageFreq != null) _uiPageFreq.setVisibility(View.VISIBLE);
+        if (_uiPageWakelocks != null) _uiPageWakelocks.setVisibility(View.GONE);
+        setTitle("CPU Spy NG");
+    }
 
-            int activeColor   = getResources().getColor(android.R.color.white);
-            int inactiveAlpha = 0x88FFFFFF; // semi-transparent white
-            // Use theme attributes for text colour
-            android.util.TypedValue tv = new android.util.TypedValue();
-            int activeCol   = 0xFFFFFFFF;
-            int inactiveCol = 0x88FFFFFF;
-            if (getTheme().resolveAttribute(android.R.attr.textColorPrimary, tv, true)) {
-                activeCol = tv.data;
-            }
-            if (getTheme().resolveAttribute(android.R.attr.textColorSecondary, tv, true)) {
-                inactiveCol = tv.data;
-            }
-            if (_uiTabFreq != null)
-                _uiTabFreq.setTextColor(wakelocks ? inactiveCol : activeCol);
-            if (_uiTabWakelocks != null)
-                _uiTabWakelocks.setTextColor(wakelocks ? activeCol : inactiveCol);
+    /** Show Wakelocks page */
+    private void showWakelocksView() {
+        _showingWakelocks = true;
+        if (_uiPageFreq != null) _uiPageFreq.setVisibility(View.GONE);
+        if (_uiPageWakelocks != null) _uiPageWakelocks.setVisibility(View.VISIBLE);
+        setTitle(R.string.wakelocks_title);
+        refreshWakelocks();
+    }
 
-            if (wakelocks && !_updatingWakelocks) {
-                refreshWakelocks();
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error switching tab", e);
+    /** Handle Android back button: if on Wakelocks, return to Frequencies */
+    @Override public void onBackPressed() {
+        if (_showingWakelocks) {
+            showFrequenciesView();
+            invalidateOptionsMenu();
+            return;
         }
+        super.onBackPressed();
     }
 
     /** called when we want to inflate the menu */
@@ -270,6 +271,29 @@ public class HomeActivity extends Activity
             Log.e(TAG, "Error creating menu", e);
         }
         return true;
+    }
+
+    /** Update menu icons and states (alarm / chart, enabled if root) */
+    @Override public boolean onPrepareOptionsMenu(Menu menu) {
+        try {
+            MenuItem wakelockItem = menu.findItem(R.id.menu_wakelocks);
+            if (wakelockItem != null) {
+                if (_showingWakelocks) {
+                    wakelockItem.setIcon(R.drawable.ic_menu_chart);
+                    wakelockItem.setTitle(R.string.menu_frequencies);
+                } else {
+                    wakelockItem.setIcon(R.drawable.ic_menu_alarm);
+                    wakelockItem.setTitle(R.string.menu_wakelocks);
+                }
+                wakelockItem.setEnabled(_hasRootAccess);
+                if (wakelockItem.getIcon() != null) {
+                    wakelockItem.getIcon().setAlpha(_hasRootAccess ? 255 : 90);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error preparing menu", e);
+        }
+        return super.onPrepareOptionsMenu(menu);
     }
 
     /** Show theme selector dialog */
@@ -324,9 +348,21 @@ public class HomeActivity extends Activity
         try {
             int itemId = item.getItemId();
 
-            if (itemId == R.id.menu_refresh) {
-                refreshData();
-                if (_showingWakelocks) refreshWakelocks();
+            if (itemId == R.id.menu_wakelocks) {
+                if (_showingWakelocks) {
+                    showFrequenciesView();
+                } else {
+                    showWakelocksView();
+                }
+                invalidateOptionsMenu();
+                return true;
+            }
+            else if (itemId == R.id.menu_refresh) {
+                if (_showingWakelocks) {
+                    refreshWakelocks();
+                } else {
+                    refreshData();
+                }
                 return true;
             }
             else if (itemId == R.id.menu_reset) {
@@ -535,11 +571,18 @@ public class HomeActivity extends Activity
                         _uiWakelocksWarning.setText(R.string.wakelocks_no_root);
                         _uiWakelocksWarning.setVisibility(View.VISIBLE);
                     }
+                    if (_uiWakelocksView != null) {
+                        _uiWakelocksView.setVisibility(View.GONE);
+                    }
                 } else {
+                    _hasRootAccess = true;
+                    invalidateOptionsMenu();
                     if (_uiWakelocksWarning != null)
                         _uiWakelocksWarning.setVisibility(View.GONE);
-                    if (_uiWakelocksView != null)
+                    if (_uiWakelocksView != null) {
+                        _uiWakelocksView.setVisibility(View.VISIBLE);
                         _uiWakelocksView.setEntries(entries, HomeActivity.this);
+                    }
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error updating wakelocks view", e);

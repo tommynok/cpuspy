@@ -5,55 +5,7 @@
     android:orientation="vertical"
     android:background="?attr/appBackgroundColor">
 
-    <!-- Tab switcher strip -->
-    <LinearLayout
-        android:id="@+id/ui_tab_bar"
-        android:layout_width="match_parent"
-        android:layout_height="38dp"
-        android:orientation="horizontal"
-        android:background="?attr/headerBackgroundColor">
-
-        <TextView
-            android:id="@+id/ui_tab_freq"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            android:textAllCaps="true"
-            android:letterSpacing="0.04"
-            android:text="@string/tab_frequencies"
-            android:textColor="?attr/headerTextColor" />
-
-        <View
-            android:layout_width="1dp"
-            android:layout_height="match_parent"
-            android:background="?attr/dividerColor" />
-
-        <TextView
-            android:id="@+id/ui_tab_wakelocks"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            android:textAllCaps="true"
-            android:letterSpacing="0.04"
-            android:text="@string/tab_wakelocks"
-            android:textColor="?attr/secondaryTextColor" />
-
-    </LinearLayout>
-
-    <!-- Active tab indicator line -->
-    <View
-        android:id="@+id/ui_tab_indicator"
-        android:layout_width="match_parent"
-        android:layout_height="2dp"
-        android:background="?attr/progressTint" />
-
-    <!-- Page: Frequencies -->
+    <!-- Page: Frequencies (default) -->
     <ScrollView
         android:id="@+id/ui_page_freq"
         android:layout_width="match_parent"

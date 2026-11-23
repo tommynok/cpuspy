@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">CPU Spy</string>
+    <string name="app_name">CPU Spy NG</string>
     <string name="header_time_in_state">Время в состояниях</string>
     <string name="header_unused_states">Неиспользуемые частоты ЦП</string>
     <string name="header_total_state_time">Общее время работы</string>
@@ -19,5 +19,8 @@
     <string name="kernel_info_unavailable">Информация о ядре недоступна</string>
     <string name="tab_frequencies">Частоты</string>
     <string name="tab_wakelocks">Вейклоки</string>
-    <string name="wakelocks_no_root">Нет доступа к вейклокам.\nТребуется root или Shizuku.\n(/sys/kernel/debug/wakeup_sources)</string>
+    <string name="menu_wakelocks">Вейклоки</string>
+    <string name="menu_frequencies">Частоты</string>
+    <string name="wakelocks_no_root">Нет доступа к вейклокам.\nТребуется Root (KernelSU / Magisk) или Shizuku.</string>
+    <string name="wakelocks_title">CPU Spy NG • Вейклоки</string>
 </resources>

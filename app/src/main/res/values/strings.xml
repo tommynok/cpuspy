@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">CPU Spy</string>
+    <string name="app_name">CPU Spy NG</string>
     <string name="header_time_in_state">Time In State</string>
     <string name="header_unused_states">Unused CPU states</string>
     <string name="header_total_state_time">Total State Time</string>
@@ -19,5 +19,8 @@
     <string name="kernel_info_unavailable">Kernel info unavailable</string>
     <string name="tab_frequencies">Frequencies</string>
     <string name="tab_wakelocks">Wakelocks</string>
-    <string name="wakelocks_no_root">Cannot read wakelocks.\nRoot or Shizuku required.\n(/sys/kernel/debug/wakeup_sources)</string>
+    <string name="menu_wakelocks">Wakelocks</string>
+    <string name="menu_frequencies">Frequencies</string>
+    <string name="wakelocks_no_root">Cannot read wakelocks.\nRoot (KernelSU / Magisk) or Shizuku required.</string>
+    <string name="wakelocks_title">CPU Spy NG • Wakelocks</string>
 </resources>

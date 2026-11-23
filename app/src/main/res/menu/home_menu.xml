@@ -1,27 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
-   <item android:id="@+id/menu_refresh"
-         android:title="@string/menu_refresh"
-         android:icon="@drawable/ic_menu_refresh"
-         android:showAsAction="ifRoom"
-   />
-   
-   <item android:id="@+id/menu_reset"
-         android:title="@string/menu_reset"
-         android:icon="@android:drawable/ic_menu_delete"
-         android:showAsAction="never"
-   />
-   
-   <item android:id="@+id/menu_restore"
-         android:title="@string/menu_restore"
-         android:icon="@android:drawable/ic_menu_revert"
-         android:showAsAction="never"
-   />
+    <item android:id="@+id/menu_wakelocks"
+          android:title="@string/menu_wakelocks"
+          android:icon="@drawable/ic_menu_alarm"
+          android:showAsAction="always"
+    />
 
-   <item android:id="@+id/menu_theme"
-         android:title="@string/menu_theme"
-         android:icon="@android:drawable/ic_menu_preferences"
-         android:showAsAction="never"
-   />
+    <item android:id="@+id/menu_refresh"
+          android:title="@string/menu_refresh"
+          android:icon="@drawable/ic_menu_refresh"
+          android:showAsAction="ifRoom"
+    />
+    
+    <item android:id="@+id/menu_reset"
+          android:title="@string/menu_reset"
+          android:icon="@android:drawable/ic_menu_delete"
+          android:showAsAction="never"
+    />
+    
+    <item android:id="@+id/menu_restore"
+          android:title="@string/menu_restore"
+          android:icon="@android:drawable/ic_menu_revert"
+          android:showAsAction="never"
+    />
+
+    <item android:id="@+id/menu_theme"
+          android:title="@string/menu_theme"
+          android:icon="@android:drawable/ic_menu_preferences"
+          android:showAsAction="never"
+    />
 </menu>
