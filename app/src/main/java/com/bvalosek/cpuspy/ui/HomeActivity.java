@@ -400,6 +400,28 @@ public class HomeActivity extends Activity
         }
     }
 
+    /** Show About & Quick Help dialog */
+    private void showAboutDialog() {
+        try {
+            String versionName = "2.0.4";
+            try {
+                versionName = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            } catch (Exception ignored) {}
+
+            String gitHash = BuildConfig.GitHash;
+            String versionText = "CPU Spy NG v" + versionName + " (" + gitHash + ")";
+            String message = getString(R.string.about_text, versionText);
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle(R.string.menu_about);
+            builder.setMessage(message);
+            builder.setPositiveButton(android.R.string.ok, null);
+            builder.show();
+        } catch (Exception e) {
+            Log.e(TAG, "Error showing about dialog", e);
+        }
+    }
+
     /** called to handle a menu event */
     @Override public boolean onOptionsItemSelected(MenuItem item) {
         try {
@@ -444,6 +466,10 @@ public class HomeActivity extends Activity
             }
             else if (itemId == R.id.menu_theme) {
                 showThemeDialog();
+                return true;
+            }
+            else if (itemId == R.id.menu_about) {
+                showAboutDialog();
                 return true;
             }
         } catch (Exception e) {

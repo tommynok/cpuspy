@@ -80,6 +80,20 @@ android {
             keyAlias 'cpuspy'
             keyPassword 'cpuspy'
         }
+        releaseSigning {
+            def customKeystore = file('release-key.jks')
+            if (customKeystore.exists()) {
+                storeFile customKeystore
+                storePassword System.getenv("KEYSTORE_PASSWORD") ?: "cpuspy"
+                keyAlias System.getenv("KEY_ALIAS") ?: "cpuspy"
+                keyPassword System.getenv("KEY_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD") ?: "cpuspy"
+            } else {
+                storeFile file('test-key.jks')
+                storePassword 'cpuspy'
+                keyAlias 'cpuspy'
+                keyPassword 'cpuspy'
+            }
+        }
     }
 
     buildTypes {
@@ -92,7 +106,7 @@ android {
             // proguardFile ('proguard-disable.pro')
         }
         release {
-            signingConfig signingConfigs.testSigning
+            signingConfig signingConfigs.releaseSigning
             crunchPngs false
             ext.enableCrashlytics = false
             minifyEnabled false

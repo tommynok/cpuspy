@@ -28,4 +28,6 @@
     <string name="filter_apps_only">Только приложения</string>
     <string name="filter_all_wakelocks">Все вейклоки (включая ядро)</string>
     <string name="filter_tap_to_change">Нажмите для смены</string>
+    <string name="menu_about">О приложении</string>
+    <string name="about_text">%1$s\n\nМониторинг времени работы частот процессора, глубокого сна (Deep Sleep) и вейклоков Android.\n\nОригинал: Brandon Valosek\nReloaded: zoffcc\nФорк: CPU Spy NG\n\nКраткая справка:\n• ⏰ Будильник / 📊 График — переключение между экраном частот процессора и экраном вейклоков.\n• ∇ Воронка — фильтр вейклоков («Только приложения» или «Все вейклоки + ядро»).\n• 🔄 Обновить — повторный опрос системной статистики.</string>
 </resources>
