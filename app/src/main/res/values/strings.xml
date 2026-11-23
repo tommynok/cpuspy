@@ -17,4 +17,7 @@
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="kernel_info_unavailable">Kernel info unavailable</string>
+    <string name="tab_frequencies">Frequencies</string>
+    <string name="tab_wakelocks">Wakelocks</string>
+    <string name="wakelocks_no_root">Cannot read wakelocks.\nRoot or Shizuku required.\n(/sys/kernel/debug/wakeup_sources)</string>
 </resources>

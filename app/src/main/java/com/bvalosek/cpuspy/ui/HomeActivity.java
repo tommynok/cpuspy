@@ -32,6 +32,8 @@ import android.widget.TextView;
 
 import com.bvalosek.cpuspy.*;
 import com.bvalosek.cpuspy.CpuStateMonitor.CpuState;
+import com.bvalosek.cpuspy.WakelockMonitor;
+import com.bvalosek.cpuspy.WakelockMonitor.WakelockEntry;
 
 import android.util.Log;
 
@@ -52,8 +54,19 @@ public class HomeActivity extends Activity
     private TextView        _uiStatesWarning = null;
     private TextView        _uiKernelString = null;
 
+    // tab views
+    private TextView        _uiTabFreq = null;
+    private TextView        _uiTabWakelocks = null;
+    private View            _uiPageFreq = null;
+    private View            _uiPageWakelocks = null;
+    private WakelocksView   _uiWakelocksView = null;
+    private TextView        _uiWakelocksWarning = null;
+    private boolean         _showingWakelocks = false;
+
     /** whether or not we're updating the data in the background */
     private boolean     _updatingData = false;
+    /** whether or not we're loading wakelocks in the background */
+    private boolean     _updatingWakelocks = false;
 
     public static boolean DEMO_MODE = false;
 
@@ -190,8 +203,61 @@ public class HomeActivity extends Activity
                     R.id.ui_header_total_state_time);
             _uiStatesWarning = (TextView)findViewById(R.id.ui_states_warning);
             _uiTotalStateTime = (TextView)findViewById(R.id.ui_total_state_time);
+
+            // tab strip
+            _uiTabFreq       = (TextView)findViewById(R.id.ui_tab_freq);
+            _uiTabWakelocks  = (TextView)findViewById(R.id.ui_tab_wakelocks);
+            _uiPageFreq      = findViewById(R.id.ui_page_freq);
+            _uiPageWakelocks = findViewById(R.id.ui_page_wakelocks);
+            _uiWakelocksView    = (WakelocksView)findViewById(R.id.ui_wakelocks_view);
+            _uiWakelocksWarning = (TextView)findViewById(R.id.ui_wakelocks_warning);
+
+            if (_uiTabFreq != null) {
+                _uiTabFreq.setOnClickListener(new View.OnClickListener() {
+                    @Override public void onClick(View v) { showTab(false); }
+                });
+            }
+            if (_uiTabWakelocks != null) {
+                _uiTabWakelocks.setOnClickListener(new View.OnClickListener() {
+                    @Override public void onClick(View v) { showTab(true); }
+                });
+            }
         } catch (Exception e) {
             Log.e(TAG, "Error finding views", e);
+        }
+    }
+
+    /** Switch between Frequencies and Wakelocks pages */
+    private void showTab(boolean wakelocks) {
+        try {
+            _showingWakelocks = wakelocks;
+            if (_uiPageFreq != null)
+                _uiPageFreq.setVisibility(wakelocks ? View.GONE : View.VISIBLE);
+            if (_uiPageWakelocks != null)
+                _uiPageWakelocks.setVisibility(wakelocks ? View.VISIBLE : View.GONE);
+
+            int activeColor   = getResources().getColor(android.R.color.white);
+            int inactiveAlpha = 0x88FFFFFF; // semi-transparent white
+            // Use theme attributes for text colour
+            android.util.TypedValue tv = new android.util.TypedValue();
+            int activeCol   = 0xFFFFFFFF;
+            int inactiveCol = 0x88FFFFFF;
+            if (getTheme().resolveAttribute(android.R.attr.textColorPrimary, tv, true)) {
+                activeCol = tv.data;
+            }
+            if (getTheme().resolveAttribute(android.R.attr.textColorSecondary, tv, true)) {
+                inactiveCol = tv.data;
+            }
+            if (_uiTabFreq != null)
+                _uiTabFreq.setTextColor(wakelocks ? inactiveCol : activeCol);
+            if (_uiTabWakelocks != null)
+                _uiTabWakelocks.setTextColor(wakelocks ? activeCol : inactiveCol);
+
+            if (wakelocks && !_updatingWakelocks) {
+                refreshWakelocks();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error switching tab", e);
         }
     }
 
@@ -260,6 +326,7 @@ public class HomeActivity extends Activity
 
             if (itemId == R.id.menu_refresh) {
                 refreshData();
+                if (_showingWakelocks) refreshWakelocks();
                 return true;
             }
             else if (itemId == R.id.menu_reset) {
@@ -371,6 +438,17 @@ public class HomeActivity extends Activity
         }
     }
 
+    /** Load wakelock data in background */
+    private void refreshWakelocks() {
+        try {
+            if (!_updatingWakelocks) {
+                new RefreshWakelocksTask().execute((Void)null);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error refreshing wakelocks", e);
+        }
+    }
+
     /** @return A nicely formatted String representing tSec seconds */
     private static String sToString(long tSec) {
         try {
@@ -433,6 +511,39 @@ public class HomeActivity extends Activity
         } catch (Exception e) {
             Log.e(TAG, "Error generating state row", e);
             return null;
+        }
+    }
+
+    /** Load wakelock entries off the UI thread */
+    protected class RefreshWakelocksTask extends AsyncTask<Void, Void, List<WakelockEntry>> {
+
+        @Override protected void onPreExecute() {
+            _updatingWakelocks = true;
+        }
+
+        @Override protected List<WakelockEntry> doInBackground(Void... v) {
+            WakelockMonitor monitor = new WakelockMonitor();
+            monitor.updateEntries();
+            return monitor.getEntries();
+        }
+
+        @Override protected void onPostExecute(List<WakelockEntry> entries) {
+            try {
+                _updatingWakelocks = false;
+                if (entries == null || entries.isEmpty()) {
+                    if (_uiWakelocksWarning != null) {
+                        _uiWakelocksWarning.setText(R.string.wakelocks_no_root);
+                        _uiWakelocksWarning.setVisibility(View.VISIBLE);
+                    }
+                } else {
+                    if (_uiWakelocksWarning != null)
+                        _uiWakelocksWarning.setVisibility(View.GONE);
+                    if (_uiWakelocksView != null)
+                        _uiWakelocksView.setEntries(entries, HomeActivity.this);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error updating wakelocks view", e);
+            }
         }
     }
 

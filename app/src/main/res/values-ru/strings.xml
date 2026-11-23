@@ -17,4 +17,7 @@
     <string name="theme_light">Светлая</string>
     <string name="theme_dark">Тёмная</string>
     <string name="kernel_info_unavailable">Информация о ядре недоступна</string>
+    <string name="tab_frequencies">Частоты</string>
+    <string name="tab_wakelocks">Вейклоки</string>
+    <string name="wakelocks_no_root">Нет доступа к вейклокам.\nТребуется root или Shizuku.\n(/sys/kernel/debug/wakeup_sources)</string>
 </resources>
