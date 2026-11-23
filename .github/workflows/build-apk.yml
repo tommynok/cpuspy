@@ -28,10 +28,15 @@ jobs:
       - name: Decode Keystore
         env:
           KEYSTORE_DATA: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           if [ -n "$KEYSTORE_DATA" ]; then
             echo "$KEYSTORE_DATA" | base64 -d > app/release-key.jks
             echo "Keystore decoded successfully (size: $(wc -c < app/release-key.jks) bytes)"
+            echo "--- Keystore Info ---"
+            keytool -list -keystore app/release-key.jks -storepass "$KEYSTORE_PASSWORD" || echo "Failed to read keystore with storepass"
           else
             echo "No custom keystore secret provided, using default signing."
           fi

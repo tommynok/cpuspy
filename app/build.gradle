@@ -83,10 +83,30 @@ android {
         releaseSigning {
             def customKeystore = file('release-key.jks')
             if (customKeystore.exists()) {
+                def storePass = System.getenv("KEYSTORE_PASSWORD") ? System.getenv("KEYSTORE_PASSWORD").trim() : "cpuspy"
+                def alias = System.getenv("KEY_ALIAS") ? System.getenv("KEY_ALIAS").trim() : "cpuspy"
+                def keyPass = System.getenv("KEY_PASSWORD") ? System.getenv("KEY_PASSWORD").trim() : storePass
+
+                // Auto-detect if keyPass or storePass unlocks the private key
+                def effectiveKeyPass = keyPass
+                try {
+                    def ks = java.security.KeyStore.getInstance(java.security.KeyStore.getDefaultType())
+                    customKeystore.withInputStream { is -> ks.load(is, storePass.toCharArray()) }
+                    try {
+                        ks.getKey(alias, keyPass.toCharArray())
+                    } catch (Exception ex1) {
+                        try {
+                            if (ks.getKey(alias, storePass.toCharArray()) != null) {
+                                effectiveKeyPass = storePass
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                } catch (Exception ignored) {}
+
                 storeFile customKeystore
-                storePassword System.getenv("KEYSTORE_PASSWORD") ?: "cpuspy"
-                keyAlias System.getenv("KEY_ALIAS") ?: "cpuspy"
-                keyPassword System.getenv("KEY_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD") ?: "cpuspy"
+                storePassword storePass
+                keyAlias alias
+                keyPassword effectiveKeyPass
             } else {
                 storeFile file('test-key.jks')
                 storePassword 'cpuspy'
