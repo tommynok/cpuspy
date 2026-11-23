@@ -7,6 +7,8 @@
         <item name="android:statusBarColor">#121212</item>
         <item name="android:navigationBarColor">#121212</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:actionBarSize">48dp</item>
+        <item name="android:actionBarStyle">@style/CpuSpyActionBar.Dark</item>
         <item name="appBackgroundColor">#121212</item>
         <item name="headerBackgroundColor">#1E1E1E</item>
         <item name="headerTextColor">#FFFFFF</item>
@@ -27,6 +29,8 @@
         <item name="android:navigationBarColor">#F8F9FA</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:actionBarSize">48dp</item>
+        <item name="android:actionBarStyle">@style/CpuSpyActionBar.Light</item>
         <item name="appBackgroundColor">#F8F9FA</item>
         <item name="headerBackgroundColor">#E8EAED</item>
         <item name="headerTextColor">#202124</item>
@@ -38,6 +42,28 @@
         <item name="progressBackgroundTint">#E0E0E0</item>
         <item name="warningBackgroundColor">#FFEBEE</item>
         <item name="warningTextColor">#C62828</item>
+    </style>
+
+    <style name="CpuSpyActionBar.Dark" parent="@android:style/Widget.DeviceDefault.ActionBar">
+        <item name="android:titleTextStyle">@style/CpuSpyActionBarTitle.Dark</item>
+        <item name="android:height">48dp</item>
+    </style>
+
+    <style name="CpuSpyActionBarTitle.Dark" parent="@android:style/TextAppearance.DeviceDefault.Widget.ActionBar.Title">
+        <item name="android:textSize">17sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">#FFFFFF</item>
+    </style>
+
+    <style name="CpuSpyActionBar.Light" parent="@android:style/Widget.DeviceDefault.Light.ActionBar">
+        <item name="android:titleTextStyle">@style/CpuSpyActionBarTitle.Light</item>
+        <item name="android:height">48dp</item>
+    </style>
+
+    <style name="CpuSpyActionBarTitle.Light" parent="@android:style/TextAppearance.DeviceDefault.Widget.ActionBar.Title">
+        <item name="android:textSize">17sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">#202124</item>
     </style>
 
     <!-- Header style that adapts to current theme -->

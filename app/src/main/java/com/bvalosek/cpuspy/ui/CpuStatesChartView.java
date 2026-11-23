@@ -16,11 +16,12 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Custom chart view displaying CPU states with horizontal bars and time grid.
+ * Custom chart view displaying CPU states with horizontal bars, time grid,
+ * and a right-aligned percentage column.
  * Matches the layout style of CPU Spy Reloaded:
  * - Left column: state names (Deep sleep, frequencies)
- * - Top axis: time markers and vertical grid lines
- * - Bars: compact horizontal bars with duration and percentage
+ * - Middle area: time axis with vertical grid lines, horizontal bars, duration text
+ * - Right column: clean percentage values (60%, 28%, 1%...)
  */
 public class CpuStatesChartView extends View {
 
@@ -51,6 +52,7 @@ public class CpuStatesChartView extends View {
         public float percentage;
         public int color;
         public String durationText;
+        public String percentageText;
     }
 
     private final List<ChartItem> mItems = new ArrayList<>();
@@ -61,10 +63,12 @@ public class CpuStatesChartView extends View {
     private Paint mGridPaint;
     private Paint mBarPaint;
     private Paint mBarTextPaint;
+    private Paint mPercentPaint;
 
     private int mPrimaryColor = 0xFFFFFFFF;
     private int mSecondaryColor = 0xFFB0B0B0;
     private int mDividerColor = 0x22FFFFFF;
+    private int mPercentageColor = 0xFF90CAF9;
 
     private float mDensity = 1.0f;
     private float mRowHeight;
@@ -115,6 +119,11 @@ public class CpuStatesChartView extends View {
 
         mBarTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mBarTextPaint.setTextSize(11f * mDensity);
+
+        mPercentPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mPercentPaint.setTextSize(12f * mDensity);
+        mPercentPaint.setTextAlign(Paint.Align.RIGHT);
+        mPercentPaint.setFakeBoldText(true);
     }
 
     private void resolveColors(Context context) {
@@ -127,6 +136,9 @@ public class CpuStatesChartView extends View {
         }
         if (context.getTheme().resolveAttribute(R.attr.dividerColor, tv, true)) {
             mDividerColor = tv.data;
+        }
+        if (context.getTheme().resolveAttribute(R.attr.percentageTextColor, tv, true)) {
+            mPercentageColor = tv.data;
         }
     }
 
@@ -155,7 +167,8 @@ public class CpuStatesChartView extends View {
             }
 
             item.percentage = totalTime > 0 ? (float) state.duration * 100f / (float) totalTime : 0f;
-            item.durationText = formatDuration(state.duration / 100, (int) item.percentage, isRu);
+            item.durationText = formatDuration(state.duration / 100, isRu);
+            item.percentageText = ((int) item.percentage) + "%";
 
             mItems.add(item);
         }
@@ -164,7 +177,7 @@ public class CpuStatesChartView extends View {
         invalidate();
     }
 
-    private String formatDuration(long sec, int pct, boolean isRu) {
+    private String formatDuration(long sec, boolean isRu) {
         long h = sec / 3600;
         long m = (sec % 3600) / 60;
         long s = sec % 60;
@@ -173,19 +186,15 @@ public class CpuStatesChartView extends View {
         if (h > 0) {
             sb.append(h).append(isRu ? "ч" : "h");
             if (m > 0) {
-                sb.append(m).append(isRu ? "м" : "m");
+                sb.append(" ").append(m).append(isRu ? "м" : "m");
             }
         } else if (m > 0) {
             sb.append(m).append(isRu ? "м" : "m");
             if (s > 0) {
-                sb.append(s).append(isRu ? "с" : "s");
+                sb.append(" ").append(s).append(isRu ? "с" : "s");
             }
         } else {
             sb.append(s).append(isRu ? "с" : "s");
-        }
-
-        if (pct > 0) {
-            sb.append(" ").append(pct).append("%");
         }
 
         return sb.toString();
@@ -226,7 +235,7 @@ public class CpuStatesChartView extends View {
         int height = getHeight();
         boolean isRu = Locale.getDefault().getLanguage().startsWith("ru");
 
-        // Calculate label column width
+        // 1. Calculate label column width
         float maxLabelWidth = 0;
         for (ChartItem item : mItems) {
             float w = mLabelPaint.measureText(item.label);
@@ -235,12 +244,17 @@ public class CpuStatesChartView extends View {
             }
         }
 
+        // 2. Calculate percentage column width on the right
+        float maxPercentWidth = mPercentPaint.measureText("100%");
+        float percentRight = width - 10f * mDensity;
+        float percentLeft = percentRight - maxPercentWidth;
+
         float chartLeft = maxLabelWidth + 14f * mDensity;
-        float chartRight = width - 10f * mDensity;
+        float chartRight = percentLeft - 10f * mDensity;
         float chartWidth = chartRight - chartLeft;
         if (chartWidth <= 10f * mDensity) return;
 
-        // Draw top axis and vertical grid lines
+        // 3. Draw top axis and vertical grid lines
         mGridPaint.setColor(mDividerColor);
         mAxisPaint.setColor(mSecondaryColor);
 
@@ -259,22 +273,30 @@ public class CpuStatesChartView extends View {
             canvas.drawText(axisLabel, x, mTopAxisHeight - 6f * mDensity, mAxisPaint);
         }
 
-        // Draw rows
+        // 4. Draw rows
         Paint.FontMetrics labelFm = mLabelPaint.getFontMetrics();
         float labelBaselineOffset = (labelFm.descent - labelFm.ascent) / 2f - labelFm.descent;
 
         Paint.FontMetrics textFm = mBarTextPaint.getFontMetrics();
         float textBaselineOffset = (textFm.descent - textFm.ascent) / 2f - textFm.descent;
 
+        Paint.FontMetrics percentFm = mPercentPaint.getFontMetrics();
+        float percentBaselineOffset = (percentFm.descent - percentFm.ascent) / 2f - percentFm.descent;
+
+        mPercentPaint.setColor(mPercentageColor);
+
         for (int i = 0; i < mItems.size(); i++) {
             ChartItem item = mItems.get(i);
             float yCenter = mTopAxisHeight + i * mRowHeight + mRowHeight / 2f;
 
-            // 1. Draw state label (left-aligned column, right-aligned text)
+            // A. Draw state label (left column)
             mLabelPaint.setColor(mPrimaryColor);
             canvas.drawText(item.label, chartLeft - 8f * mDensity, yCenter + labelBaselineOffset, mLabelPaint);
 
-            // 2. Draw horizontal bar
+            // B. Draw percentage on the far right
+            canvas.drawText(item.percentageText, percentRight, yCenter + percentBaselineOffset, mPercentPaint);
+
+            // C. Draw horizontal bar
             float barW = (float) item.duration / (float) mMaxDuration * chartWidth;
             if (barW < 2f * mDensity && item.duration > 0) {
                 barW = 2f * mDensity;
@@ -284,7 +306,7 @@ public class CpuStatesChartView extends View {
             mBarRect.set(chartLeft, yCenter - mBarHeight / 2f, chartLeft + barW, yCenter + mBarHeight / 2f);
             canvas.drawRoundRect(mBarRect, mCornerRadius, mCornerRadius, mBarPaint);
 
-            // 3. Draw duration and percentage text
+            // D. Draw duration text (inside or outside the bar)
             float textWidth = mBarTextPaint.measureText(item.durationText);
             if (barW >= textWidth + 14f * mDensity) {
                 // Inside the bar
