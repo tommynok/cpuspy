@@ -1,1 +1,4 @@
-
+-keep class rikka.shizuku.** { *; }
+-keep class dev.rikka.shizuku.** { *; }
+-keep class eu.darken.porter.** { *; }
+-keep class com.bvalosek.cpuspy.porter.** { *; }

@@ -21,7 +21,7 @@
     <string name="tab_wakelocks">Wakelocks</string>
     <string name="menu_wakelocks">Wakelocks</string>
     <string name="menu_frequencies">Frequencies</string>
-    <string name="wakelocks_no_root">Cannot read wakelocks.\nRoot access required (KernelSU / Magisk / APatch).\nShizuku is not implemented.</string>
+    <string name="wakelocks_no_root">Cannot read wakelocks.\nElevated access required:\nRoot (KernelSU / Magisk / APatch), Shizuku, or Porter.</string>
     <string name="wakelocks_title">CPU Spy NG • Wakelocks</string>
     <string name="wakelocks_loading">Loading wakelocks…</string>
     <string name="menu_filter">Filter</string>
@@ -29,5 +29,5 @@
     <string name="filter_all_wakelocks">All wakelocks (including kernel)</string>
     <string name="filter_tap_to_change">Tap to change</string>
     <string name="menu_about">About</string>
-    <string name="about_text">%1$s\n\nCPU state monitor (time-in-state, deep sleep) and wake lock inspector for Android.\n\nOriginal: Brandon Valosek (2011)\nReloaded: zoffcc\nFork: tommynok (CPU Spy NG)\n\nQuick Help:\n• ⏰ Alarm / 📊 Chart — switch between CPU frequencies and Wakelocks. The icon is dimmed/grey if Root is not granted. Root access (KernelSU / Magisk / APatch) is strictly required to collect wakelocks. Shizuku / Porter integration is not implemented.\n• ∇ Funnel — wakelock filter (\"Apps only\" vs \"All wakelocks + kernel\").</string>
+    <string name="about_text">%1$s\n\nCPU state monitor (time-in-state, deep sleep) and wake lock inspector for Android.\n\nOriginal: Brandon Valosek (2011)\nReloaded: zoffcc\nFork: tommynok (CPU Spy NG)\n\nQuick Help:\n• ⏰ Alarm / 📊 Chart — switch between CPU frequencies and Wakelocks (icon is dimmed/grey if access is unavailable). Supported elevation backends: Root (KernelSU / Magisk / APatch), Shizuku, and Porter.\n• ∇ Funnel — wakelock filter (\"Apps only\" vs \"All wakelocks + kernel\").</string>
 </resources>

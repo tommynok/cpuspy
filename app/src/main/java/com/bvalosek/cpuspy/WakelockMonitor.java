@@ -6,11 +6,9 @@ import android.content.pm.PackageManager;
 import android.util.Log;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -18,11 +16,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.bvalosek.cpuspy.porter.PorterClient;
+import rikka.shizuku.Shizuku;
+
 /**
- * Reads wakelock data:
- *   1. Root (su): dumpsys batterystats --checkin (apps + wakeups + running times)
- *      + dumpsys power (currently active locks)
- *   2. Fallback: /sys/class/wakeup/ (only if batterystats yielded no data)
+ * Reads wakelock data using elevated execution:
+ *   1. Root (su): dumpsys batterystats --checkin + dumpsys power
+ *   2. Porter: executes shell commands via elevated Porter service
+ *   3. Shizuku: executes shell commands via Shizuku binder (uid 2000 has android.permission.DUMP)
+ *   4. Fallback: /sys/class/wakeup/ (only if elevated methods yielded no data)
  */
 public class WakelockMonitor {
 
@@ -86,6 +88,95 @@ public class WakelockMonitor {
         return _entries;
     }
 
+    private static volatile Boolean sRootAvailableCache = null;
+
+    /**
+     * Checks if elevated privileges (Root, Shizuku, or Porter) are granted and available.
+     */
+    public static boolean isElevatedAvailable() {
+        return isRootGranted() || isPorterGranted() || isShizukuGranted();
+    }
+
+    public static boolean isShizukuRunning() {
+        try {
+            return Shizuku.pingBinder();
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    public static boolean isShizukuGranted() {
+        try {
+            return Shizuku.pingBinder() &&
+                    Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    public static boolean isPorterGranted() {
+        try {
+            return PorterClient.isGranted();
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    public static boolean isRootGranted() {
+        if (sRootAvailableCache != null) {
+            return sRootAvailableCache;
+        }
+        return isRootAvailable();
+    }
+
+    public static void setRootGranted(boolean granted) {
+        sRootAvailableCache = granted;
+    }
+
+    /**
+     * Fast probe to verify root execution without hanging.
+     */
+    public static boolean probeRootFast() {
+        for (String su : new String[]{"su", "/system/bin/su", "/system/xbin/su"}) {
+            Process p = null;
+            try {
+                p = Runtime.getRuntime().exec(new String[]{su, "-c", "id"});
+                final Process proc = p;
+                final boolean[] success = new boolean[1];
+                Thread t = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            if (proc.waitFor() == 0) {
+                                BufferedReader r = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+                                String line = r.readLine();
+                                if (line != null && line.contains("uid=0")) {
+                                    success[0] = true;
+                                }
+                            }
+                        } catch (Throwable ignored) {}
+                    }
+                });
+                t.start();
+                t.join(800);
+                if (t.isAlive()) {
+                    t.interrupt();
+                    proc.destroy();
+                } else if (success[0]) {
+                    sRootAvailableCache = true;
+                    return true;
+                }
+            } catch (Throwable ignored) {
+            } finally {
+                if (p != null) {
+                    try { p.destroy(); } catch (Throwable ignored) {}
+                }
+            }
+        }
+        sRootAvailableCache = false;
+        return false;
+    }
+
     /**
      * Check if root binaries exist on the device (fast check)
      */
@@ -135,8 +226,8 @@ public class WakelockMonitor {
             } catch (Exception ignored) {}
         }
 
-        // 1. Fast root execution: dumpsys batterystats --checkin + dumpsys power
-        readViaRoot(appMap, uidMap, pm);
+        // 1. Fast elevated execution: dumpsys batterystats --checkin + dumpsys power
+        readViaElevated(appMap, uidMap, pm);
 
         // 2. Fallback only if no data was retrieved
         if (appMap.isEmpty()) {
@@ -173,31 +264,65 @@ public class WakelockMonitor {
     }
 
     // -------------------------------------------------------------------------
-    // Method 1: Fast Interactive Root Shell
-    // Runs dumpsys batterystats --checkin + dumpsys power in ONE fast session.
+    // Method 1: Elevated Execution (Root -> Porter -> Shizuku)
+    // Runs dumpsys batterystats --checkin + dumpsys power in ONE session.
     // -------------------------------------------------------------------------
-    private void readViaRoot(Map<String, WakelockEntry> map, Map<Integer, String> uidMap, PackageManager pm) {
-        try {
-            ProcessBuilder pb = new ProcessBuilder("su");
-            pb.redirectErrorStream(true);
-            Process p = pb.start();
+    private void readViaElevated(Map<String, WakelockEntry> map, Map<Integer, String> uidMap, PackageManager pm) {
+        String cmd = "echo '===BATTERYSTATS_CHECKIN==='; dumpsys batterystats --checkin 2>/dev/null; echo '===DUMPSYS_POWER==='; dumpsys power 2>/dev/null; echo '===END==='";
 
-            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(p.getOutputStream()));
-            writer.write("echo '===BATTERYSTATS_CHECKIN==='\n");
-            writer.write("dumpsys batterystats --checkin 2>/dev/null\n");
-            writer.write("echo '===DUMPSYS_POWER==='\n");
-            writer.write("dumpsys power 2>/dev/null\n");
-            writer.write("echo '===END==='\n");
-            writer.write("exit\n");
-            writer.flush();
-            writer.close();
+        // Provider cascade:
+        // 1. Root (su)
+        if (isRootGranted() || isRootAvailable()) {
+            if (executeAndParse(cmd, 1, map, uidMap, pm)) {
+                sRootAvailableCache = true;
+                return;
+            }
+        }
+
+        // 2. Porter
+        if (isPorterGranted()) {
+            if (executeAndParse(cmd, 2, map, uidMap, pm)) {
+                return;
+            }
+        }
+
+        // 3. Shizuku
+        if (isShizukuGranted()) {
+            if (executeAndParse(cmd, 3, map, uidMap, pm)) {
+                return;
+            }
+        }
+    }
+
+    private boolean executeAndParse(String cmd, int providerType,
+                                    Map<String, WakelockEntry> map,
+                                    Map<Integer, String> uidMap,
+                                    PackageManager pm) {
+        Process p = null;
+        try {
+            if (providerType == 1) {
+                for (String su : new String[]{"su", "/system/bin/su", "/system/xbin/su"}) {
+                    try {
+                        p = Runtime.getRuntime().exec(new String[]{su, "-c", cmd});
+                        break;
+                    } catch (Throwable ignored) {}
+                }
+            } else if (providerType == 2) {
+                p = PorterClient.runProcess(cmd);
+            } else if (providerType == 3) {
+                p = Shizuku.newProcess(new String[]{"sh", "-c", cmd}, null, null);
+            }
+
+            if (p == null) return false;
 
             BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
             String line;
             int section = 0; // 1 = checkin, 2 = dumpsys power
             boolean inPowerWakeLocks = false;
+            boolean hasReadAnyValidData = false;
 
             while ((line = reader.readLine()) != null) {
+                line = line.trim();
                 if (line.contains("===BATTERYSTATS_CHECKIN===")) {
                     section = 1;
                     continue;
@@ -209,26 +334,35 @@ public class WakelockMonitor {
                 }
 
                 if (section == 1) {
-                    parseCheckinLine(line, map, uidMap, pm);
+                    if (parseCheckinLine(line, map, uidMap, pm)) {
+                        hasReadAnyValidData = true;
+                    }
                 } else if (section == 2) {
                     if (line.contains("Wake Locks:")) {
                         inPowerWakeLocks = true;
                         continue;
                     }
                     if (inPowerWakeLocks) {
-                        if (line.trim().isEmpty() || line.startsWith("  Suspend Blockers")) {
+                        if (line.isEmpty() || line.startsWith("Suspend Blockers")) {
                             inPowerWakeLocks = false;
                         } else {
-                            parsePowerActiveLine(line, map);
+                            if (parsePowerActiveLine(line, map)) {
+                                hasReadAnyValidData = true;
+                            }
                         }
                     }
                 }
             }
 
-            p.waitFor();
-            reader.close();
-        } catch (Exception e) {
-            Log.d(TAG, "Root execution failed: " + e.getMessage());
+            try { reader.close(); } catch (Throwable ignored) {}
+            return hasReadAnyValidData;
+        } catch (Throwable t) {
+            Log.d(TAG, "executeAndParse provider=" + providerType + " failed: " + t.getMessage());
+            return false;
+        } finally {
+            if (p != null) {
+                try { p.destroy(); } catch (Throwable ignored) {}
+            }
         }
     }
 
@@ -236,12 +370,12 @@ public class WakelockMonitor {
     // Parse Checkin CSV lines from dumpsys batterystats
     // Format: version,uid,category,type,args...
     // -------------------------------------------------------------------------
-    private void parseCheckinLine(String line, Map<String, WakelockEntry> map,
-                                  Map<Integer, String> uidMap, PackageManager pm) {
+    private boolean parseCheckinLine(String line, Map<String, WakelockEntry> map,
+                                     Map<Integer, String> uidMap, PackageManager pm) {
         try {
-            if (line == null || line.length() < 6) return;
+            if (line == null || line.length() < 6) return false;
             String[] p = line.split(",");
-            if (p.length < 5) return;
+            if (p.length < 5) return false;
 
             int uid = safeInt(p[1]);
             String type = p[3].trim();
@@ -263,6 +397,7 @@ public class WakelockMonitor {
                             map.put(pkg, e);
                         }
                         e.hitCount += wakeups;
+                        return true;
                     }
                 }
             } else if ("wl".equals(type)) {
@@ -306,6 +441,7 @@ public class WakelockMonitor {
                     }
                     e.totalTimeMs += partTime;
                     if (e.hitCount == 0) e.hitCount += partCount;
+                    return true;
                 }
             } else if ("kwl".equals(type) && p.length >= 6) {
                 // Kernel wake lock: p[4] = name, p[5] = totalTimeMs, p[6] = count
@@ -322,23 +458,25 @@ public class WakelockMonitor {
                     }
                     e.totalTimeMs += timeMs;
                     e.hitCount += count;
+                    return true;
                 }
             }
         } catch (Exception ignored) {}
+        return false;
     }
 
     // -------------------------------------------------------------------------
     // Parse active wake locks from dumpsys power
     // -------------------------------------------------------------------------
-    private void parsePowerActiveLine(String line, Map<String, WakelockEntry> map) {
+    private boolean parsePowerActiveLine(String line, Map<String, WakelockEntry> map) {
         try {
             line = line.trim();
-            if (line.isEmpty()) return;
+            if (line.isEmpty()) return false;
 
             int q1 = line.indexOf('\'');
             int q2 = line.lastIndexOf('\'');
             String name = (q1 >= 0 && q2 > q1) ? cleanStr(line.substring(q1 + 1, q2)) : null;
-            if (name == null || name.isEmpty()) return;
+            if (name == null || name.isEmpty()) return false;
 
             String pkg = null;
             int pkgIdx = line.indexOf("packageName=");
@@ -367,7 +505,9 @@ public class WakelockMonitor {
                 if (e.hitCount == 0) e.hitCount = 1;
                 map.put(key, e);
             }
+            return true;
         } catch (Exception ignored) {}
+        return false;
     }
 
     // -------------------------------------------------------------------------

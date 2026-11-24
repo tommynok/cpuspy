@@ -2,9 +2,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-sdk tools:overrideLibrary="moe.shizuku.provider, rikka.shizuku.aidl, rikka.shizuku.api, rikka.shizuku.provider, rikka.shizuku.shared, dev.rikka.shizuku.provider, dev.rikka.shizuku.api, dev.rikka.shizuku.aidl, eu.darken.porter.bridge, eu.darken.porter.sdk, eu.darken.porter.protocol, eu.darken.porter.sdk.extras" />
+
     <!-- Allow querying all installed apps to show app names & icons on Android 11+ -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
+
+    <uses-permission android:name="eu.darken.porter.permission.API" />
+    <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL"
+        tools:ignore="ProtectedPermissions" />
+
+    <queries>
+        <package android:name="moe.shizuku.privileged.api" />
+        <package android:name="eu.darken.porter" />
+    </queries>
 
     <application
         android:label="@string/app_name"
@@ -26,6 +38,24 @@
             </intent-filter>
 
         </activity>
+
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL"
+            tools:ignore="ProtectedPermissions" />
+
+        <provider
+            android:name="com.bvalosek.cpuspy.porter.PorterApiProvider"
+            android:authorities="${applicationId}.porter.api"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL"
+            tools:ignore="ProtectedPermissions" />
 
     </application>
 

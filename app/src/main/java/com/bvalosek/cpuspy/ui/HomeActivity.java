@@ -38,6 +38,8 @@ import com.bvalosek.cpuspy.*;
 import com.bvalosek.cpuspy.CpuStateMonitor.CpuState;
 import com.bvalosek.cpuspy.WakelockMonitor;
 import com.bvalosek.cpuspy.WakelockMonitor.WakelockEntry;
+import com.bvalosek.cpuspy.porter.PorterClient;
+import rikka.shizuku.Shizuku;
 
 import android.util.Log;
 
@@ -45,6 +47,9 @@ import android.util.Log;
 public class HomeActivity extends Activity
 {
     private static final String TAG = "CpuSpy";
+
+    public static final int SHIZUKU_REQ_CODE = 4001;
+    public static final int PORTER_REQ_CODE  = 4002;
 
     private CpuSpyApp _app = null;
 
@@ -78,6 +83,67 @@ public class HomeActivity extends Activity
     private boolean     _updatingWakelocks = false;
 
     public static boolean DEMO_MODE = false;
+
+    private final Shizuku.OnBinderReceivedListener mShizukuBinderListener = new Shizuku.OnBinderReceivedListener() {
+        @Override
+        public void onBinderReceived() {
+            Log.d(TAG, "Shizuku binder received");
+            onPrivilegesChanged();
+        }
+    };
+
+    private final Shizuku.OnBinderDeadListener mShizukuDeadListener = new Shizuku.OnBinderDeadListener() {
+        @Override
+        public void onBinderDead() {
+            Log.d(TAG, "Shizuku binder dead");
+            onPrivilegesChanged();
+        }
+    };
+
+    private final Shizuku.OnRequestPermissionResultListener mShizukuPermissionListener = new Shizuku.OnRequestPermissionResultListener() {
+        @Override
+        public void onRequestPermissionResult(int requestCode, int grantResult) {
+            Log.d(TAG, "Shizuku permission result: req=" + requestCode + ", res=" + grantResult);
+            onPrivilegesChanged();
+        }
+    };
+
+    private final PorterClient.OnBinderReceivedListener mPorterBinderListener = new PorterClient.OnBinderReceivedListener() {
+        @Override
+        public void onBinderReceived() {
+            Log.d(TAG, "Porter binder received");
+            onPrivilegesChanged();
+        }
+    };
+
+    private final PorterClient.OnBinderLostListener mPorterLostListener = new PorterClient.OnBinderLostListener() {
+        @Override
+        public void onBinderLost() {
+            Log.d(TAG, "Porter binder lost");
+            onPrivilegesChanged();
+        }
+    };
+
+    private final PorterClient.OnPermissionResultListener mPorterPermissionListener = new PorterClient.OnPermissionResultListener() {
+        @Override
+        public void onPermissionResult(int requestCode, boolean granted) {
+            Log.d(TAG, "Porter permission result: req=" + requestCode + ", granted=" + granted);
+            onPrivilegesChanged();
+        }
+    };
+
+    private void onPrivilegesChanged() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                _hasRootAccess = WakelockMonitor.isElevatedAvailable();
+                invalidateOptionsMenu();
+                if (_showingWakelocks && _hasRootAccess) {
+                    refreshWakelocks();
+                }
+            }
+        });
+    }
 
     private boolean isDarkTheme() {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
@@ -153,7 +219,21 @@ public class HomeActivity extends Activity
             setTitle("CPU Spy NG");
             _filterAppsOnly = PreferenceManager.getDefaultSharedPreferences(this)
                     .getBoolean("filter_apps_only", true);
-            checkRootAccess();
+
+            try {
+                PorterClient.init(this);
+                Shizuku.addBinderReceivedListenerSticky(mShizukuBinderListener);
+                Shizuku.addBinderDeadListener(mShizukuDeadListener);
+                Shizuku.addRequestPermissionResultListener(mShizukuPermissionListener);
+
+                PorterClient.addBinderReceivedListener(mPorterBinderListener);
+                PorterClient.addBinderLostListener(mPorterLostListener);
+                PorterClient.addPermissionResultListener(mPorterPermissionListener);
+            } catch (Throwable t) {
+                Log.e(TAG, "Error initializing Porter/Shizuku", t);
+            }
+
+            checkElevatedAccess();
 
             // see if we're updating data during a config change (rotate screen)
             if (savedInstanceState != null) {
@@ -191,6 +271,8 @@ public class HomeActivity extends Activity
         super.onResume();
         updateSystemBars();
         try {
+            PorterClient.fetchBinderFromManager(this);
+            checkElevatedAccess();
             refreshData();
         } catch (Exception e) {
             Log.e(TAG, "Error in onResume", e);
@@ -201,23 +283,36 @@ public class HomeActivity extends Activity
         }
     }
 
-    /** Check whether device has root (KernelSU / Magisk / APatch) */
-    private void checkRootAccess() {
-        _hasRootAccess = WakelockMonitor.isRootAvailable();
+    @Override
+    protected void onDestroy() {
+        try {
+            Shizuku.removeBinderReceivedListener(mShizukuBinderListener);
+            Shizuku.removeBinderDeadListener(mShizukuDeadListener);
+            Shizuku.removeRequestPermissionResultListener(mShizukuPermissionListener);
+
+            PorterClient.removeBinderReceivedListener(mPorterBinderListener);
+            PorterClient.removeBinderLostListener(mPorterLostListener);
+            PorterClient.removePermissionResultListener(mPorterPermissionListener);
+        } catch (Throwable t) {
+            Log.e(TAG, "Error removing Porter/Shizuku listeners in onDestroy", t);
+        }
+        super.onDestroy();
+    }
+
+    /** Check whether device has elevated privileges (Root, Shizuku, or Porter) */
+    private void checkElevatedAccess() {
+        _hasRootAccess = WakelockMonitor.isElevatedAvailable();
         new AsyncTask<Void, Void, Boolean>() {
             @Override
             protected Boolean doInBackground(Void... voids) {
-                try {
-                    Process p = Runtime.getRuntime().exec(new String[]{"su", "-c", "id"});
-                    int exit = p.waitFor();
-                    return exit == 0;
-                } catch (Exception e) {
-                    return false;
+                if (WakelockMonitor.isShizukuGranted() || WakelockMonitor.isPorterGranted()) {
+                    return true;
                 }
+                return WakelockMonitor.probeRootFast();
             }
             @Override
-            protected void onPostExecute(Boolean hasRoot) {
-                _hasRootAccess = hasRoot || WakelockMonitor.isRootAvailable();
+            protected void onPostExecute(Boolean hasElevated) {
+                _hasRootAccess = hasElevated || WakelockMonitor.isElevatedAvailable();
                 invalidateOptionsMenu();
             }
         }.execute();
@@ -275,6 +370,20 @@ public class HomeActivity extends Activity
         if (_uiPageWakelocks != null) _uiPageWakelocks.setVisibility(View.VISIBLE);
         setTitle("CPU Spy NG");
         invalidateOptionsMenu();
+
+        // If elevated access is not yet granted, prompt Shizuku or Porter if running
+        if (!WakelockMonitor.isElevatedAvailable()) {
+            if (WakelockMonitor.isShizukuRunning() && !WakelockMonitor.isShizukuGranted()) {
+                try {
+                    Shizuku.requestPermission(SHIZUKU_REQ_CODE);
+                } catch (Throwable ignored) {}
+            } else if (PorterClient.isAlive() && !WakelockMonitor.isPorterGranted()) {
+                try {
+                    PorterClient.requestPermission(PORTER_REQ_CODE);
+                } catch (Throwable ignored) {}
+            }
+        }
+
         refreshWakelocks();
     }
 
@@ -403,7 +512,7 @@ public class HomeActivity extends Activity
     /** Show About & Quick Help dialog */
     private void showAboutDialog() {
         try {
-            String versionName = "2.0.4";
+            String versionName = "2.1.0";
             try {
                 versionName = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
             } catch (Exception ignored) {}
