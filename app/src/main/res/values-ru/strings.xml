@@ -27,7 +27,7 @@
     <string name="menu_filter">Фильтр</string>
     <string name="filter_apps_only">Только приложения</string>
     <string name="filter_all_wakelocks">Все вейклоки (включая ядро)</string>
-    <string name="filter_tap_to_change">Нажмите для смены</string>
+    <string name="filter_status_format">Фильтр: %1$s</string>
     <string name="menu_about">О приложении</string>
-    <string name="about_text">%1$s\n\nМониторинг частот процессора, глубокого сна (Deep Sleep) и блокировок пробуждения (вейклоков).\n\nАвтор оригинала: Brandon Valosek (2011)\nReloaded: zoffcc\nФорк: tommynok (CPU Spy NG)\n\nКраткая справка:\n• ⏰ Будильник / 📊 График — переключение между частотами CPU и вейклоками (значок тусклый или серый, если нет доступа). Отображение вейклоков требует Root, Shizuku или Porter.\n• ∇ Воронка — фильтр вейклоков («Только приложения» ↔ «Все вейклоки и ядро»).</string>
+    <string name="about_text">%1$s\n\nМониторинг частот процессора, глубокого сна (Deep Sleep) и блокировок пробуждения (вейклоков).\n\nАвтор оригинала: Brandon Valosek (2011)\nReloaded: zoffcc\nФорк: tommynok (CPU Spy NG)\n\nКраткая справка:\n• ⏰ Будильник / 📊 График — переключение между частотами CPU и вейклоками (значок тусклый или серый, если нет доступа). Отображение вейклоков требует Root, Shizuku или Porter.\n• ≡ Фильтр — фильтр вейклоков («Только приложения» ↔ «Все вейклоки и ядро»).</string>
 </resources>

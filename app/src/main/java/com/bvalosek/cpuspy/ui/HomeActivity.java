@@ -28,7 +28,6 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -70,8 +69,8 @@ public class HomeActivity extends Activity
     private TextView        _uiWakelocksWarning = null;
     private View            _uiWakelocksLoading = null;
     private View            _uiWakelocksFilterBar = null;
-    private ImageView       _uiFilterIcon = null;
     private TextView        _uiFilterText = null;
+    private TextView        _uiFilterCount = null;
     private boolean         _showingWakelocks = false;
     private boolean         _hasRootAccess = false;
     private boolean         _filterAppsOnly = true;
@@ -339,16 +338,8 @@ public class HomeActivity extends Activity
             _uiWakelocksWarning = (TextView)findViewById(R.id.ui_wakelocks_warning);
             _uiWakelocksLoading = findViewById(R.id.ui_wakelocks_loading);
             _uiWakelocksFilterBar = findViewById(R.id.ui_wakelocks_filter_bar);
-            _uiFilterIcon       = (ImageView)findViewById(R.id.ui_filter_icon);
             _uiFilterText       = (TextView)findViewById(R.id.ui_filter_text);
-            if (_uiWakelocksFilterBar != null) {
-                _uiWakelocksFilterBar.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        toggleFilter();
-                    }
-                });
-            }
+            _uiFilterCount      = (TextView)findViewById(R.id.ui_filter_count);
         } catch (Exception e) {
             Log.e(TAG, "Error finding views", e);
         }
@@ -774,13 +765,11 @@ public class HomeActivity extends Activity
         _uiWakelocksView.setEntries(displayList, this);
 
         if (_uiFilterText != null) {
-            _uiFilterText.setText(_filterAppsOnly ? R.string.filter_apps_only : R.string.filter_all_wakelocks);
+            String filterLabel = getString(_filterAppsOnly ? R.string.filter_apps_only : R.string.filter_all_wakelocks);
+            _uiFilterText.setText(getString(R.string.filter_status_format, filterLabel));
         }
-        if (_uiFilterIcon != null) {
-            boolean dark = isDarkTheme();
-            int iconColor = dark ? 0xFF90CAF9 : 0xFF1976D2;
-            _uiFilterIcon.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
-            _uiFilterIcon.setAlpha(_filterAppsOnly ? 255 : 140);
+        if (_uiFilterCount != null) {
+            _uiFilterCount.setText(displayList.size() + " / " + _allWakelockEntries.size());
         }
     }
 
