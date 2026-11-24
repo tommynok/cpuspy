@@ -310,7 +310,7 @@ public class WakelockMonitor {
             } else if (providerType == 2) {
                 p = PorterClient.runProcess(cmd);
             } else if (providerType == 3) {
-                p = Shizuku.newProcess(new String[]{"sh", "-c", cmd}, null, null);
+                p = runWithShizuku(cmd);
             }
 
             if (p == null) return false;
@@ -364,6 +364,13 @@ public class WakelockMonitor {
                 try { p.destroy(); } catch (Throwable ignored) {}
             }
         }
+    }
+
+    private static Process runWithShizuku(String cmd) throws Exception {
+        java.lang.reflect.Method m = Shizuku.class.getDeclaredMethod(
+            "newProcess", String[].class, String[].class, String.class);
+        m.setAccessible(true);
+        return (Process) m.invoke(null, new String[] { "sh", "-c", cmd }, null, null);
     }
 
     // -------------------------------------------------------------------------
