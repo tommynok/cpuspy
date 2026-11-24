@@ -17,6 +17,11 @@ def getGitHash = { ->
     }
 }
 
+def getBuildNumber = { ->
+    def raw = System.getenv("BUILD_NUMBER") ?: (System.getenv("GITHUB_RUN_NUMBER") ?: "")
+    return raw ? raw.trim() : ""
+}
+
 android {
     namespace 'com.bvalosek.cpuspy'
     compileSdk 34
@@ -27,12 +32,16 @@ android {
         cruncherEnabled = false
     }
 
+    def buildNum = getBuildNumber()
+    def baseVersionCode = 20100
+    def baseVersionName = "2.1.0"
+
     defaultConfig {
         applicationId "com.zoffcc.applications.cpuspy"
         minSdk 21
         targetSdk 34
-        versionCode 20100
-        versionName "2.1.0"
+        versionCode baseVersionCode + (buildNum ? Integer.parseInt(buildNum) : 0)
+        versionName buildNum ? "${baseVersionName}-b${buildNum}" : "${baseVersionName}-dev"
 
         // Enabling multidex support
         multiDexEnabled true
