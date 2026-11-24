@@ -301,11 +301,11 @@ public class HomeActivity extends Activity
             if (icon != null) {
                 icon = icon.mutate();
                 icon.setColorFilter(iconColor, PorterDuff.Mode.SRC_IN);
-                icon.setAlpha(_hasRootAccess ? 255 : 90);
+                icon.setAlpha(_hasRootAccess ? 255 : 100);
                 wakelockItem.setIcon(icon);
             }
             wakelockItem.setTitle(_showingWakelocks ? R.string.menu_frequencies : R.string.menu_wakelocks);
-            wakelockItem.setEnabled(_hasRootAccess);
+            wakelockItem.setEnabled(true);
         }
 
         MenuItem filterItem = menu.findItem(R.id.menu_filter);

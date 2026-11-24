@@ -21,7 +21,7 @@
     <string name="tab_wakelocks">Вейклоки</string>
     <string name="menu_wakelocks">Вейклоки</string>
     <string name="menu_frequencies">Частоты</string>
-    <string name="wakelocks_no_root">Нет доступа к вейклокам.\nТребуется Root (KernelSU / Magisk) или Shizuku.</string>
+    <string name="wakelocks_no_root">Нет доступа к вейклокам.\nТребуется Root (KernelSU / Magisk / APatch).\nИнтеграция с Shizuku не реализована.</string>
     <string name="wakelocks_title">CPU Spy NG • Вейклоки</string>
     <string name="wakelocks_loading">Сбор данных о вейклоках…</string>
     <string name="menu_filter">Фильтр</string>
@@ -29,5 +29,5 @@
     <string name="filter_all_wakelocks">Все вейклоки (включая ядро)</string>
     <string name="filter_tap_to_change">Нажмите для смены</string>
     <string name="menu_about">О приложении</string>
-    <string name="about_text">%1$s\n\nМониторинг времени работы частот процессора, глубокого сна (Deep Sleep) и вейклоков Android.\n\nОригинал: Brandon Valosek\nReloaded: zoffcc\nФорк: CPU Spy NG\n\nКраткая справка:\n• ⏰ Будильник / 📊 График — переключение между экраном частот процессора и экраном вейклоков.\n• ∇ Воронка — фильтр вейклоков («Только приложения» или «Все вейклоки + ядро»).\n• 🔄 Обновить — повторный опрос системной статистики.</string>
+    <string name="about_text">%1$s\n\nМониторинг времени работы частот процессора, глубокого сна (Deep Sleep) и блокировок сна (вейклоков).\n\nОригинал: Brandon Valosek (2011)\nReloaded: zoffcc\nФорк: tommynok (CPU Spy NG)\n\nКраткая справка:\n• ⏰ Будильник / 📊 График — переключение между экраном частот процессора и экраном вейклоков (значок тусклый/серый, если не выдан Root). Для работы вкладки вейклоков строго требуется Root (KernelSU / Magisk / APatch). Интеграция с Shizuku / Porter не реализована.\n• ∇ Воронка — фильтр вейклоков («Только приложения» ↔ «Все вейклоки + ядро»).</string>
 </resources>
