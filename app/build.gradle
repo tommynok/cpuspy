@@ -130,9 +130,9 @@ android {
             signingConfig signingConfigs.releaseSigning
             crunchPngs false
             ext.enableCrashlytics = false
-            minifyEnabled false
-            shrinkResources false
-            // proguardFile ('proguard-disable.pro')
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 
