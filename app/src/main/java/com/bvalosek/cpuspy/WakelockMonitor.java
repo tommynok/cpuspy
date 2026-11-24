@@ -246,17 +246,19 @@ public class WakelockMonitor {
         }
 
         // 5. Sort:
-        // 1) Active right now
-        // 2) Apps before kernel drivers
-        // 3) By wake count (hitCount) desc
-        // 4) By running time desc
+        // 1) Apps strictly before kernel / hardware drivers (system are a priori below apps)
+        // 2) By wake count (hitCount) descending (prevents 1-count locks from pushing heavy ones down)
+        // 3) By running time (totalTimeMs) descending
+        // 4) Active right now (isActive) as tie-breaker
+        // 5) Alphabetical by display name
         Collections.sort(filtered, new Comparator<WakelockEntry>() {
             @Override
             public int compare(WakelockEntry a, WakelockEntry b) {
-                if (a.isActive != b.isActive) return a.isActive ? -1 : 1;
                 if (a.isApp != b.isApp) return a.isApp ? -1 : 1;
                 if (a.hitCount != b.hitCount) return Long.compare(b.hitCount, a.hitCount);
-                return Long.compare(b.totalTimeMs, a.totalTimeMs);
+                if (a.totalTimeMs != b.totalTimeMs) return Long.compare(b.totalTimeMs, a.totalTimeMs);
+                if (a.isActive != b.isActive) return a.isActive ? -1 : 1;
+                return a.displayName().compareToIgnoreCase(b.displayName());
             }
         });
 
@@ -346,7 +348,7 @@ public class WakelockMonitor {
                         if (line.isEmpty() || line.startsWith("Suspend Blockers")) {
                             inPowerWakeLocks = false;
                         } else {
-                            if (parsePowerActiveLine(line, map)) {
+                            if (parsePowerActiveLine(line, map, uidMap, pm)) {
                                 hasReadAnyValidData = true;
                             }
                         }
@@ -475,7 +477,8 @@ public class WakelockMonitor {
     // -------------------------------------------------------------------------
     // Parse active wake locks from dumpsys power
     // -------------------------------------------------------------------------
-    private boolean parsePowerActiveLine(String line, Map<String, WakelockEntry> map) {
+    private boolean parsePowerActiveLine(String line, Map<String, WakelockEntry> map,
+                                         Map<Integer, String> uidMap, PackageManager pm) {
         try {
             line = line.trim();
             if (line.isEmpty()) return false;
@@ -486,31 +489,122 @@ public class WakelockMonitor {
             if (name == null || name.isEmpty()) return false;
 
             String pkg = null;
-            int pkgIdx = line.indexOf("packageName=");
-            if (pkgIdx >= 0) {
-                String rest = line.substring(pkgIdx + "packageName=".length());
-                int space = rest.indexOf(' ');
-                pkg = space > 0 ? rest.substring(0, space) : rest.trim();
-            } else if (name.startsWith("*alarm*:")) {
-                String sub = name.substring("*alarm*:".length());
-                int slash = sub.indexOf('/');
-                pkg = slash > 0 ? sub.substring(0, slash) : sub;
-            } else {
+
+            // 1. Check WorkSource{...} (e.g. ws=WorkSource{10123 com.android.vending})
+            int wsIdx = line.indexOf("WorkSource{");
+            if (wsIdx >= 0) {
+                int end = line.indexOf('}', wsIdx);
+                if (end > wsIdx) {
+                    String wsContent = line.substring(wsIdx + "WorkSource{".length(), end).trim();
+                    String[] tokens = wsContent.split("\\s+");
+                    for (String t : tokens) {
+                        t = cleanStr(t);
+                        if (t.contains(".") && t.length() > 4 && Character.isLowerCase(t.charAt(0))) {
+                            pkg = t;
+                            break;
+                        }
+                    }
+                    if (pkg == null && tokens.length > 0) {
+                        int wsUid = safeInt(tokens[0]);
+                        if (wsUid > 0) {
+                            if (wsUid == 1000) pkg = "android";
+                            else if (uidMap != null && uidMap.containsKey(wsUid)) pkg = uidMap.get(wsUid);
+                            else if (SYSTEM_UID_MAP.containsKey(wsUid)) pkg = SYSTEM_UID_MAP.get(wsUid)[0];
+                            else if (pm != null) {
+                                try {
+                                    String[] pkgs = pm.getPackagesForUid(wsUid);
+                                    if (pkgs != null && pkgs.length > 0) {
+                                        pkg = pkgs[0];
+                                        if (uidMap != null) uidMap.put(wsUid, pkg);
+                                    }
+                                } catch (Exception ignored) {}
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Check packageName=
+            if (pkg == null) {
+                int pkgIdx = line.indexOf("packageName=");
+                if (pkgIdx >= 0) {
+                    String rest = line.substring(pkgIdx + "packageName=".length());
+                    int space = rest.indexOf(' ');
+                    String cand = space > 0 ? rest.substring(0, space) : rest.trim();
+                    cand = cleanStr(cand);
+                    if (cand.contains(".") && Character.isLowerCase(cand.charAt(0))) {
+                        pkg = cand;
+                    }
+                }
+            }
+
+            // 3. Extract package from lock name (*job*/..., *alarm*:..., *sync*/..., etc.)
+            if (pkg == null) {
                 pkg = extractPackage(name);
             }
 
-            String key = (pkg != null) ? pkg : name;
-            WakelockEntry e = map.get(key);
-            if (e != null) {
-                e.isActive = true;
+            // 4. Check (uid=XXXX)
+            if (pkg == null) {
+                int uidIdx = line.indexOf("(uid=");
+                if (uidIdx < 0) uidIdx = line.indexOf("uid=");
+                if (uidIdx >= 0) {
+                    int start = uidIdx + (line.charAt(uidIdx) == '(' ? 5 : 4);
+                    int end = start;
+                    while (end < line.length() && Character.isDigit(line.charAt(end))) {
+                        end++;
+                    }
+                    if (end > start) {
+                        int u = safeInt(line.substring(start, end));
+                        if (u > 0) {
+                            if (u == 1000) pkg = "android";
+                            else if (uidMap != null && uidMap.containsKey(u)) pkg = uidMap.get(u);
+                            else if (SYSTEM_UID_MAP.containsKey(u)) pkg = SYSTEM_UID_MAP.get(u)[0];
+                            else if (pm != null) {
+                                try {
+                                    String[] pkgs = pm.getPackagesForUid(u);
+                                    if (pkgs != null && pkgs.length > 0) {
+                                        pkg = pkgs[0];
+                                        if (uidMap != null) uidMap.put(u, pkg);
+                                    }
+                                } catch (Exception ignored) {}
+                            }
+                            if (pkg == null && u >= 10000) {
+                                pkg = "uid:" + u;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (pkg != null) {
+                WakelockEntry e = map.get(pkg);
+                if (e != null) {
+                    e.isActive = true;
+                    if (e.packageName == null && !pkg.startsWith("uid:")) {
+                        e.packageName = pkg;
+                    }
+                    e.isApp = true;
+                } else {
+                    e = new WakelockEntry();
+                    e.name = pkg;
+                    e.packageName = pkg.startsWith("uid:") ? null : pkg;
+                    e.isActive = true;
+                    e.isApp = true;
+                    if (e.hitCount == 0) e.hitCount = 1;
+                    map.put(pkg, e);
+                }
             } else {
-                e = new WakelockEntry();
-                e.name = name;
-                e.packageName = pkg;
-                e.isActive = true;
-                e.isApp = (pkg != null);
-                if (e.hitCount == 0) e.hitCount = 1;
-                map.put(key, e);
+                WakelockEntry e = map.get(name);
+                if (e != null) {
+                    e.isActive = true;
+                } else {
+                    e = new WakelockEntry();
+                    e.name = name;
+                    e.isActive = true;
+                    e.isApp = false;
+                    if (e.hitCount == 0) e.hitCount = 1;
+                    map.put(name, e);
+                }
             }
             return true;
         } catch (Exception ignored) {}
@@ -559,8 +653,15 @@ public class WakelockMonitor {
         boolean isRu = java.util.Locale.getDefault().getLanguage().startsWith("ru");
         for (WakelockEntry e : map.values()) {
             // Check if name or packageName is a raw UID like "uid:1041"
+            String uidStr = null;
             if (e.name != null && e.name.startsWith("uid:")) {
-                int uidVal = safeInt(e.name.substring(4));
+                uidStr = e.name.substring(4);
+            } else if (e.packageName != null && e.packageName.startsWith("uid:")) {
+                uidStr = e.packageName.substring(4);
+            }
+
+            if (uidStr != null) {
+                int uidVal = safeInt(uidStr);
                 if (SYSTEM_UID_MAP.containsKey(uidVal)) {
                     String[] sys = SYSTEM_UID_MAP.get(uidVal);
                     e.packageName = sys[0];
@@ -569,13 +670,13 @@ public class WakelockMonitor {
                     e.packageName = "system.uid." + uidVal;
                     e.appName = isRu ? ("Системная служба (UID " + uidVal + ")") : ("System Service (UID " + uidVal + ")");
                 } else {
-                    String resolvedPkg = uidMap.get(uidVal);
+                    String resolvedPkg = uidMap != null ? uidMap.get(uidVal) : null;
                     if (resolvedPkg == null && pm != null) {
                         try {
                             String[] pkgs = pm.getPackagesForUid(uidVal);
                             if (pkgs != null && pkgs.length > 0) {
                                 resolvedPkg = pkgs[0];
-                                uidMap.put(uidVal, resolvedPkg);
+                                if (uidMap != null) uidMap.put(uidVal, resolvedPkg);
                             }
                         } catch (Exception ignored) {}
                     }
@@ -632,12 +733,52 @@ public class WakelockMonitor {
     }
 
     private static String extractPackage(String name) {
-        if (name == null) return null;
-        int colon = name.indexOf(':');
-        String candidate = colon > 0 ? name.substring(0, colon) : name;
-        if (candidate.contains(".") && candidate.length() > 4
-                && Character.isLowerCase(candidate.charAt(0))) {
-            return candidate;
+        if (name == null || name.isEmpty()) return null;
+        String s = name.trim();
+
+        if (s.startsWith("*job*/")) {
+            s = s.substring(6);
+        } else if (s.startsWith("*alarm*:")) {
+            s = s.substring(8);
+        } else if (s.startsWith("*sync*/")) {
+            s = s.substring(7);
+        } else if (s.startsWith("*vibrator*/")) {
+            s = s.substring(11);
+        } else if (s.startsWith("*launch*/")) {
+            s = s.substring(9);
+        } else if (s.startsWith("*walarm*:")) {
+            s = s.substring(9);
+        } else if (s.startsWith("*")) {
+            int slash = s.indexOf('/');
+            int colon = s.indexOf(':');
+            int cut = -1;
+            if (slash > 0 && colon > 0) cut = Math.min(slash, colon);
+            else if (slash > 0) cut = slash;
+            else if (colon > 0) cut = colon;
+            if (cut > 0 && cut < s.length() - 1) {
+                s = s.substring(cut + 1);
+            }
+        }
+
+        // WorkManager tag pattern: @tag@packageName/service
+        if (s.startsWith("@")) {
+            int secondAt = s.indexOf('@', 1);
+            if (secondAt > 0 && secondAt < s.length() - 1) {
+                s = s.substring(secondAt + 1);
+            } else {
+                s = s.substring(1);
+            }
+        }
+
+        int colon = s.indexOf(':');
+        if (colon > 0) s = s.substring(0, colon);
+
+        int slash = s.indexOf('/');
+        if (slash > 0) s = s.substring(0, slash);
+
+        s = cleanStr(s);
+        if (s.contains(".") && s.length() > 4 && Character.isLowerCase(s.charAt(0))) {
+            return s;
         }
         return null;
     }
