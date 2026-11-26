@@ -21,7 +21,8 @@
     <string name="tab_wakelocks">Вейклоки</string>
     <string name="menu_wakelocks">Вейклоки</string>
     <string name="menu_frequencies">Частоты</string>
-    <string name="wakelocks_no_root">Нет доступа к вейклокам.\nТребуются повышенные привилегии:\nRoot (KernelSU / Magisk / APatch), Shizuku или Porter.</string>
+    <string name="wakelocks_no_root">Нет доступа к вейклокам.\nТребуются повышенные привилегии:\nRoot (KernelSU / Magisk / APatch), Shizuku или Porter.\n(Нажмите для запроса прав или повтора)</string>
+    <string name="wakelocks_empty_data">Вейклоки пока не зафиксированы или отсутствуют.\nНажмите для обновления.</string>
     <string name="wakelocks_title">CPU Spy NG • Вейклоки</string>
     <string name="wakelocks_loading">Сбор данных о вейклоках…</string>
     <string name="menu_filter">Фильтр</string>

@@ -21,7 +21,8 @@
     <string name="tab_wakelocks">Wakelocks</string>
     <string name="menu_wakelocks">Wakelocks</string>
     <string name="menu_frequencies">Frequencies</string>
-    <string name="wakelocks_no_root">Cannot read wakelocks.\nElevated access required:\nRoot (KernelSU / Magisk / APatch), Shizuku, or Porter.</string>
+    <string name="wakelocks_no_root">Cannot read wakelocks.\nElevated access required:\nRoot (KernelSU / Magisk / APatch), Shizuku, or Porter.\n(Tap to request access or retry)</string>
+    <string name="wakelocks_empty_data">No wakelocks recorded yet or list is empty.\nTap to refresh.</string>
     <string name="wakelocks_title">CPU Spy NG • Wakelocks</string>
     <string name="wakelocks_loading">Loading wakelocks…</string>
     <string name="menu_filter">Filter</string>

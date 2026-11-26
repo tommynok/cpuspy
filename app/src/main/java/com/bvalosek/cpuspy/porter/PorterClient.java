@@ -118,6 +118,32 @@ public class PorterClient {
         sAsyncExecutor.execute(() -> fetchBinderFromManagerInternal(appContext));
     }
 
+    /**
+     * Ensures Porter is connected and attached.
+     * Can be called from a background thread (e.g. in WakelockMonitor) to wait for connection
+     * without startup race conditions.
+     */
+    public static boolean ensureConnected(Context context) {
+        if (context == null) return false;
+        if (isGranted()) return true;
+
+        Context appContext = context.getApplicationContext();
+        fetchBinderFromManagerInternal(appContext);
+
+        // Wait up to 800ms for binder attachment and permission result to complete
+        long deadline = System.currentTimeMillis() + 800;
+        while (System.currentTimeMillis() < deadline) {
+            if (isGranted()) return true;
+            if (sUnsupported) return false;
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
+        return isGranted();
+    }
+
     private static boolean fetchBinderFromManagerInternal(Context context) {
         if (isAlive()) {
             return true;
@@ -164,6 +190,14 @@ public class PorterClient {
                 try {
                     targetBinder.unlinkToDeath(this, 0);
                 } catch (Throwable ignored) {}
+
+                // Auto-reconnect after a short delay if binder died
+                if (appContext != null) {
+                    sAsyncExecutor.execute(() -> {
+                        try { Thread.sleep(600); } catch (InterruptedException ignored) {}
+                        fetchBinderFromManagerInternal(appContext);
+                    });
+                }
             }
         };
 

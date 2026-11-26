@@ -120,6 +120,7 @@ public class HomeActivity extends Activity
         public void onBinderLost() {
             Log.d(TAG, "Porter binder lost");
             onPrivilegesChanged();
+            PorterClient.fetchBinderFromManager(HomeActivity.this);
         }
     };
 
@@ -336,6 +337,14 @@ public class HomeActivity extends Activity
             _uiPageWakelocks    = findViewById(R.id.ui_page_wakelocks);
             _uiWakelocksView    = (WakelocksView)findViewById(R.id.ui_wakelocks_view);
             _uiWakelocksWarning = (TextView)findViewById(R.id.ui_wakelocks_warning);
+            if (_uiWakelocksWarning != null) {
+                _uiWakelocksWarning.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        requestElevatedPermissionsOrRetry();
+                    }
+                });
+            }
             _uiWakelocksLoading = findViewById(R.id.ui_wakelocks_loading);
             _uiWakelocksFilterBar = findViewById(R.id.ui_wakelocks_filter_bar);
             _uiFilterText       = (TextView)findViewById(R.id.ui_filter_text);
@@ -362,20 +371,40 @@ public class HomeActivity extends Activity
         setTitle("CPU Spy NG");
         invalidateOptionsMenu();
 
-        // If elevated access is not yet granted, prompt Shizuku or Porter if running
+        // If elevated access is not yet granted, attempt to connect and request permissions
         if (!WakelockMonitor.isElevatedAvailable()) {
-            if (WakelockMonitor.isShizukuRunning() && !WakelockMonitor.isShizukuGranted()) {
-                try {
-                    Shizuku.requestPermission(SHIZUKU_REQ_CODE);
-                } catch (Throwable ignored) {}
-            } else if (PorterClient.isAlive() && !WakelockMonitor.isPorterGranted()) {
-                try {
-                    PorterClient.requestPermission(PORTER_REQ_CODE);
-                } catch (Throwable ignored) {}
-            }
+            requestElevatedPermissionsOrRetry();
+        } else {
+            refreshWakelocks();
         }
+    }
 
-        refreshWakelocks();
+    /** Attempt to reconnect elevated services, request permissions if needed, and refresh */
+    private void requestElevatedPermissionsOrRetry() {
+        try {
+            // 1. Re-fetch Porter binder
+            PorterClient.fetchBinderFromManager(this);
+
+            // 2. If Porter is alive but permission not granted, request permission
+            if (PorterClient.isAlive() && !PorterClient.isGranted()) {
+                PorterClient.requestPermission(PORTER_REQ_CODE);
+            }
+
+            // 3. If Shizuku is running but permission not granted, request permission
+            if (WakelockMonitor.isShizukuRunning() && !WakelockMonitor.isShizukuGranted()) {
+                Shizuku.requestPermission(SHIZUKU_REQ_CODE);
+            }
+
+            // 4. If neither Porter nor Shizuku, probe root
+            if (!PorterClient.isAlive() && !WakelockMonitor.isShizukuRunning()) {
+                WakelockMonitor.setRootGranted(WakelockMonitor.probeRootFast());
+            }
+
+            // 5. Trigger refresh
+            refreshWakelocks();
+        } catch (Throwable t) {
+            Log.e(TAG, "Error in requestElevatedPermissionsOrRetry", t);
+        }
     }
 
     /** Handle Android back button: if on Wakelocks, return to Frequencies */
@@ -801,13 +830,18 @@ public class HomeActivity extends Activity
                 if (_uiWakelocksLoading != null) {
                     _uiWakelocksLoading.setVisibility(View.GONE);
                 }
+                boolean hasElevated = WakelockMonitor.isElevatedAvailable();
                 if (entries == null || entries.isEmpty()) {
                     _allWakelockEntries.clear();
                     if (_uiWakelocksFilterBar != null) {
                         _uiWakelocksFilterBar.setVisibility(View.GONE);
                     }
                     if (_uiWakelocksWarning != null) {
-                        _uiWakelocksWarning.setText(R.string.wakelocks_no_root);
+                        if (hasElevated) {
+                            _uiWakelocksWarning.setText(R.string.wakelocks_empty_data);
+                        } else {
+                            _uiWakelocksWarning.setText(R.string.wakelocks_no_root);
+                        }
                         _uiWakelocksWarning.setVisibility(View.VISIBLE);
                     }
                     if (_uiWakelocksView != null) {

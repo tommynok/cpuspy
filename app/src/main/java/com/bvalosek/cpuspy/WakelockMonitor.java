@@ -227,7 +227,7 @@ public class WakelockMonitor {
         }
 
         // 1. Fast elevated execution: dumpsys batterystats --checkin + dumpsys power
-        readViaElevated(appMap, uidMap, pm);
+        readViaElevated(appMap, uidMap, pm, context);
 
         // 2. Fallback only if no data was retrieved
         if (appMap.isEmpty()) {
@@ -269,29 +269,38 @@ public class WakelockMonitor {
     // Method 1: Elevated Execution (Root -> Porter -> Shizuku)
     // Runs dumpsys batterystats --checkin + dumpsys power in ONE session.
     // -------------------------------------------------------------------------
-    private void readViaElevated(Map<String, WakelockEntry> map, Map<Integer, String> uidMap, PackageManager pm) {
+    private void readViaElevated(Map<String, WakelockEntry> map, Map<Integer, String> uidMap, PackageManager pm, Context context) {
         String cmd = "echo '===BATTERYSTATS_CHECKIN==='; dumpsys batterystats --checkin 2>/dev/null; echo '===DUMPSYS_POWER==='; dumpsys power 2>/dev/null; echo '===END==='";
 
         // Provider cascade:
-        // 1. Root (su)
-        if (isRootGranted() || isRootAvailable()) {
+        // Priority 1: If Root is explicitly verified and granted (sRootAvailableCache == true)
+        if (Boolean.TRUE.equals(sRootAvailableCache)) {
             if (executeAndParse(cmd, 1, map, uidMap, pm)) {
-                sRootAvailableCache = true;
                 return;
             }
         }
 
-        // 2. Porter
-        if (isPorterGranted()) {
+        // Priority 2: Porter (if already granted, or ensureConnected succeeds on this worker thread)
+        if (isPorterGranted() || (context != null && PorterClient.ensureConnected(context))) {
             if (executeAndParse(cmd, 2, map, uidMap, pm)) {
                 return;
             }
         }
 
-        // 3. Shizuku
+        // Priority 3: Shizuku
         if (isShizukuGranted()) {
             if (executeAndParse(cmd, 3, map, uidMap, pm)) {
                 return;
+            }
+        }
+
+        // Priority 4: Root fallback ONLY if root was not previously probed and rejected
+        if (sRootAvailableCache == null && isRootAvailable()) {
+            if (executeAndParse(cmd, 1, map, uidMap, pm)) {
+                sRootAvailableCache = true;
+                return;
+            } else {
+                sRootAvailableCache = false;
             }
         }
     }
